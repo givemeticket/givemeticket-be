@@ -43,6 +43,8 @@ jobs:
             deploy-files:
               - 'docker/**'
               - 'observability/**'
+              - 'nginx/**'
+              - '.github/workflows/cd.yml'
 
   build-backend:
     needs: changes
