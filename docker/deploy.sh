@@ -46,6 +46,15 @@ CERT_DIR="${APP_DIR}/certbot/conf/live/${DOMAIN:-api.givemeticket.site}"
 if [[ -L "${CERT_DIR}/fullchain.pem" || -f "${CERT_DIR}/fullchain.pem" ]]; then
   echo "🔀 nginx 반영..."
   docker compose -f "$COMPOSE_FILE" up -d --no-deps nginx certbot
+
+  # nginx는 upstream 호스트명을 기동 시 딱 한 번만 해석해 워커에 캐시한다.
+  # 재생성된 컨테이너는 IP가 바뀌므로, 리로드하지 않으면 낡은 IP로 계속 붙어 502가 난다.
+  # (실제로 grafana가 재생성되며 IP가 바뀌었는데 그 자리를 loki가 차지해 502가 났었다.)
+  echo "♻️  nginx 리로드 (upstream IP 재해석)..."
+  if ! docker compose -f "$COMPOSE_FILE" exec -T nginx nginx -s reload; then
+    echo "⚠️  리로드 실패 — nginx를 재기동합니다."
+    docker compose -f "$COMPOSE_FILE" restart nginx
+  fi
 else
   echo "⚠️  인증서가 없어 nginx를 건너뜁니다. nginx/init-letsencrypt.sh 를 먼저 실행하세요."
 fi
