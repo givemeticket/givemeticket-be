@@ -149,7 +149,7 @@ jobs:
         env:
           DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}
           DOCKER_NAMESPACE: ${{ vars.DOCKER_NAMESPACE || secrets.DOCKER_USERNAME }}
-          DOMAIN: ${{ vars.DOMAIN || 'givemeticket.site' }}
+          DOMAIN: ${{ vars.DOMAIN || 'api.givemeticket.site' }}
         run: |
           set -euo pipefail
           DEPLOY_DIR="${DEPLOY_DIR:-$HOME/givemeticket-prod}"

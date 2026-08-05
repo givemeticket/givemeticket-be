@@ -74,7 +74,7 @@ services:
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_USERS_DEFAULT_THEME: light
-      GF_SERVER_ROOT_URL: "https://${DOMAIN:-givemeticket.site}/grafana/"
+      GF_SERVER_ROOT_URL: "https://${DOMAIN:-api.givemeticket.site}/grafana/"
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
     volumes:
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -87,7 +87,7 @@ services:
     image: nginx:1.27-alpine
     restart: unless-stopped
     environment:
-      DOMAIN: ${DOMAIN:-givemeticket.site}
+      DOMAIN: ${DOMAIN:-api.givemeticket.site}
     ports:
       - "80:80"
       - "443:443"
