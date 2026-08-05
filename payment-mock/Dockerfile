@@ -16,13 +16,13 @@ RUN jlink \
 # ---- run ----
 FROM alpine:3.20
 RUN apk add --no-cache tzdata wget && \
-    addgroup -S app && adduser -S app -G app
+    addgroup -S app && adduser -S app -G app && \
+    mkdir -p /logs/dumps && chown -R app:app /logs
 ENV JAVA_HOME=/opt/java
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 COPY --from=jre /javaruntime ${JAVA_HOME}
 WORKDIR /app
-COPY --from=build /workspace/build/libs/*.jar app.jar
-RUN mkdir -p /logs && chown -R app:app /logs /app
+COPY --from=build --chown=app:app /workspace/build/libs/*.jar app.jar
 USER app
 EXPOSE 8081
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=55.0 \
