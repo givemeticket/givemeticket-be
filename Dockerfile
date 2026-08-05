@@ -22,6 +22,16 @@ ENV PATH="${JAVA_HOME}/bin:${PATH}"
 COPY --from=jre /javaruntime ${JAVA_HOME}
 WORKDIR /app
 COPY --from=build /workspace/build/libs/*.jar app.jar
+RUN mkdir -p /logs/dumps && chown -R app:app /logs /app
 USER app
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+ENV JAVA_OPTS="-XX:InitialRAMPercentage=70.0 \
+-XX:MaxRAMPercentage=70.0 \
+-XX:MetaspaceSize=128m \
+-XX:MaxMetaspaceSize=256m \
+-XX:+UseG1GC \
+-XX:+HeapDumpOnOutOfMemoryError \
+-XX:HeapDumpPath=/logs/dumps \
+-XX:ErrorFile=/logs/hs_err_pid%p.log \
+-Xlog:gc=info:file=/logs/gc.log:time,uptime:filecount=3,filesize=5M"
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]

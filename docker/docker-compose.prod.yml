@@ -26,8 +26,6 @@ services:
     image: ${DOCKER_NAMESPACE}/givemeticket:payment-mock
     restart: unless-stopped
     pull_policy: always
-    environment:
-      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=55.0 -XX:+UseSerialGC -Xss512k"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q UP"]
       interval: 5s
@@ -40,9 +38,9 @@ services:
     pull_policy: always
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70.0"
     volumes:
       - ./config/application-prod.yml:/app/config/application-prod.yml:ro
+      - backend-logs:/logs
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:
@@ -112,5 +110,6 @@ services:
 
 volumes:
   mysql-data:
+  backend-logs:
   prometheus-data:
   grafana-data:
