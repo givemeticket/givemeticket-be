@@ -1,0 +1,14 @@
+spring:
+  datasource:
+    url: jdbc:mysql://mysql:3306/givemeticket?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8
+    username: CHANGE_ME_USER
+    password: CHANGE_ME_PASSWORD
+    hikari:
+      maximum-pool-size: 20
+  data:
+    redis:
+      host: redis
+      port: 6379
+
+payment:
+  base-url: http://payment-mock:8081
