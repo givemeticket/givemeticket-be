@@ -9,7 +9,7 @@ HEALTH_RETRIES="${HEALTH_RETRIES:-120}"
 HEALTH_INTERVAL="${HEALTH_INTERVAL:-5}"
 
 case "$SERVICE" in
-  backend)      HEALTH_URL="${HEALTH_URL:-http://localhost/actuator/health/readiness}" ;;
+  backend)      HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8080/actuator/health/readiness}" ;;
   payment-mock) HEALTH_URL="" ;;
   *) echo "❌ 알 수 없는 서비스: $SERVICE (backend | payment-mock)"; exit 1 ;;
 esac
@@ -27,6 +27,14 @@ docker compose -f "$COMPOSE_FILE" up -d --no-deps --force-recreate "$SERVICE"
 
 echo "📊 관측 스택 반영..."
 docker compose -f "$COMPOSE_FILE" up -d --no-deps prometheus grafana
+
+if [[ -f "${APP_DIR}/certbot/conf/live/${DOMAIN:-api.givemeticket.site}/fullchain.pem" ]]; then
+  echo "🔀 nginx 반영..."
+  docker compose -f "$COMPOSE_FILE" up -d --no-deps nginx certbot
+  docker compose -f "$COMPOSE_FILE" exec -T nginx nginx -s reload 2>/dev/null || true
+else
+  echo "⚠️  인증서가 없어 nginx를 건너뜁니다. nginx/init-letsencrypt.sh 를 먼저 실행하세요."
+fi
 
 if [[ -z "$HEALTH_URL" ]]; then
   echo "✅ ${SERVICE} 재기동 완료 (헬스체크 대상 아님)"

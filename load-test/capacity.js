@@ -34,13 +34,13 @@ export const options = {
 export function setup() {
   const openAt = new Date(Date.now() + 4000).toISOString().slice(0, 19);
   const res = http.post(
-    `${BASE_URL}/campaigns`,
+    `${API}/campaigns`,
     JSON.stringify({ title: 'k6 capacity', totalStock: STOCK, openAt }),
     { headers: { 'Content-Type': 'application/json' } }
   );
   const campaignId = res.json('id');
   for (let i = 0; i < 20; i++) {
-    if (http.get(`${BASE_URL}/campaigns/${campaignId}`).json('status') === 'OPEN') break;
+    if (http.get(`${API}/campaigns/${campaignId}`).json('status') === 'OPEN') break;
     sleep(1);
   }
   console.log(`campaign=${campaignId}, stock=${STOCK} — 계단식 부하 시작`);
@@ -49,7 +49,7 @@ export function setup() {
 
 export default function (data) {
   const userId = __VU * 1000000 + __ITER;
-  const res = http.post(`${BASE_URL}/campaigns/${data.campaignId}/apply`, null, {
+  const res = http.post(`${API}/campaigns/${data.campaignId}/apply`, null, {
     headers: { 'X-User-Id': String(userId) },
   });
   check(res, { '5xx 아님': (r) => r.status === 201 || r.status === 409 });

@@ -149,13 +149,17 @@ jobs:
         env:
           DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}
           DOCKER_NAMESPACE: ${{ vars.DOCKER_NAMESPACE || secrets.DOCKER_USERNAME }}
+          DOMAIN: ${{ vars.DOMAIN || 'api.givemeticket.site' }}
         run: |
           set -euo pipefail
           DEPLOY_DIR="${DEPLOY_DIR:-$HOME/givemeticket-prod}"
           echo "📁 배포 디렉터리: $DEPLOY_DIR"
           mkdir -p "$DEPLOY_DIR/config"
 
-          printf 'DOCKER_NAMESPACE=%s\n' "$DOCKER_NAMESPACE" > "$DEPLOY_DIR/.env"
+          {
+            printf 'DOCKER_NAMESPACE=%s\n' "$DOCKER_NAMESPACE"
+            printf 'DOMAIN=%s\n' "$DOMAIN"
+          } > "$DEPLOY_DIR/.env"
           chmod 600 "$DEPLOY_DIR/.env"
 
           cp docker/docker-compose.prod.yml "$DEPLOY_DIR/docker-compose.yml"
@@ -163,8 +167,10 @@ jobs:
           cp docker/config/application-prod.yml "$DEPLOY_DIR/config/application-prod.yml"
           cp docker/config/mysql.env            "$DEPLOY_DIR/config/mysql.env"
           cp docker/config/grafana.env          "$DEPLOY_DIR/config/grafana.env"
-          rm -rf "$DEPLOY_DIR/observability"
+          rm -rf "$DEPLOY_DIR/observability" "$DEPLOY_DIR/nginx"
           cp -R observability "$DEPLOY_DIR/observability"
+          cp -R nginx "$DEPLOY_DIR/nginx"
+          mkdir -p "$DEPLOY_DIR/certbot/conf" "$DEPLOY_DIR/certbot/www"
           chmod +x "$DEPLOY_DIR/deploy.sh"
 
       - name: Deploy payment-mock

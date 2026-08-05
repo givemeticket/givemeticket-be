@@ -66,13 +66,39 @@ sudo usermod -aG docker $USER
 
 ## 프로덕션 노출
 
-| 서비스 | 포트 |
+| 경로 | 대상 |
 | --- | --- |
-| backend | `:80` |
-| Grafana | `:3001` |
-| Prometheus · mysql · redis · payment-mock | 컨테이너 네트워크 내부 |
+| `https://api.givemeticket.site/api/v1/...` | backend |
+| `https://api.givemeticket.site/grafana/` | Grafana |
+| `/actuator/*` | 외부 차단 (nginx `deny all`) |
 
-GCP 방화벽에서 80과 3001 인그레스를 열어야 한다. 3001은 소스 IP를 제한하는 편이 좋다.
+nginx만 80·443을 열고 나머지는 컨테이너 네트워크 내부에 둔다. backend는 헬스체크용으로 `127.0.0.1:8080`에만 바인딩한다.
+
+GCP 방화벽은 80과 443만 열면 된다. 80은 HTTPS 리다이렉트와 Let's Encrypt ACME 챌린지에 쓴다.
+
+## DNS
+
+| 레코드 | 값 | 용도 |
+| --- | --- | --- |
+| `api.givemeticket.site` A | 35.216.61.208 | 이 서버 |
+| `givemeticket.site` | 프론트 호스팅 | 별도 |
+
+apex는 프론트가 가져가므로 API는 서브도메인으로 분리한다.
+
+## HTTPS 최초 발급
+
+`api.givemeticket.site` A 레코드가 서버 IP를 가리키고 80 포트가 열린 뒤 배포 서버에서 한 번만 실행한다. `dig api.givemeticket.site +short`로 먼저 확인한다.
+
+```bash
+cd ~/givemeticket-prod
+DOMAIN=api.givemeticket.site CERTBOT_EMAIL=<이메일> ./nginx/init-letsencrypt.sh
+```
+
+임시 자체 서명 인증서로 nginx를 띄우고 → ACME 챌린지를 받고 → 실제 인증서로 교체한 뒤 리로드한다. 인증서 없이 nginx를 먼저 띄울 수 없어 필요한 절차다.
+
+발급 한도(도메인당 주 5회)를 아끼려면 `STAGING=1`로 먼저 시험한다. 성공하면 `certbot/conf`를 지우고 다시 실행한다.
+
+갱신은 certbot 컨테이너가 12시간마다 `certbot renew`를 돌리고, nginx가 6시간마다 리로드해 새 인증서를 집는다.
 
 ## 이미지
 
