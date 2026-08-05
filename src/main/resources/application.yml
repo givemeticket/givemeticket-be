@@ -2,7 +2,7 @@ spring:
   application:
     name: givemeticket-api
   datasource:
-    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:givemeticket}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:givemeticket}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci
     username: ${MYSQL_USER:givemeticket}
     password: ${MYSQL_PASSWORD:givemeticket}
     driver-class-name: com.mysql.cj.jdbc.Driver

@@ -19,6 +19,20 @@ cd "$APP_DIR"
 echo "🧱 의존 서비스 기동 확인 (이미 떠 있고 변경 없으면 아무 것도 하지 않음)..."
 docker compose -f "$COMPOSE_FILE" up -d --no-deps mysql redis
 
+if [[ -f "${APP_DIR}/.env" ]]; then
+  set -a; . "${APP_DIR}/.env"; set +a
+fi
+IMAGE_REF="${DOCKER_NAMESPACE:?.env에 DOCKER_NAMESPACE가 필요합니다}/givemeticket:${SERVICE}"
+PREV_REF="${IMAGE_REF}-prev"
+
+echo "🏷  현재 이미지를 ${PREV_REF} 로 보존..."
+if docker image inspect "$IMAGE_REF" >/dev/null 2>&1; then
+  docker rmi -f "$PREV_REF" >/dev/null 2>&1 || true
+  docker tag "$IMAGE_REF" "$PREV_REF"
+else
+  echo "   (첫 배포라 이전 이미지 없음)"
+fi
+
 echo "🔻 ${SERVICE} 최신 이미지 받는 중..."
 docker compose -f "$COMPOSE_FILE" pull "$SERVICE"
 
@@ -36,9 +50,16 @@ else
   echo "⚠️  인증서가 없어 nginx를 건너뜁니다. nginx/init-letsencrypt.sh 를 먼저 실행하세요."
 fi
 
+cleanup_images() {
+  echo "🧹 이미지 정리 (최신 + 직전만 유지)..."
+  docker image prune -f >/dev/null 2>&1 || true
+  docker builder prune -af >/dev/null 2>&1 || true
+  df -h / | tail -1 | awk '{print "   디스크: " $3 " / " $2 " (" $5 ")"}'
+}
+
 if [[ -z "$HEALTH_URL" ]]; then
   echo "✅ ${SERVICE} 재기동 완료 (헬스체크 대상 아님)"
-  docker image prune -f >/dev/null 2>&1 || true
+  cleanup_images
   exit 0
 fi
 
@@ -46,7 +67,7 @@ echo "🩺 헬스체크 (${HEALTH_URL}, 최대 $((HEALTH_RETRIES * HEALTH_INTERV
 for i in $(seq 1 "$HEALTH_RETRIES"); do
   if curl -fsS "$HEALTH_URL" 2>/dev/null | grep -q '"status":"UP"'; then
     echo "✅ 배포 성공 (시도 ${i}/${HEALTH_RETRIES})"
-    docker image prune -f >/dev/null 2>&1 || true
+    cleanup_images
     exit 0
   fi
   if (( i % 6 == 0 )); then

@@ -49,7 +49,6 @@ services:
       PAYMENT_ERROR_RATE: ${PAYMENT_ERROR_RATE}
       PAYMENT_TIMEOUT_RATE: ${PAYMENT_TIMEOUT_RATE}
       PAYMENT_DECLINE_RATE: ${PAYMENT_DECLINE_RATE}
-      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=55.0 -XX:+UseSerialGC -Xss512k"
     ports:
       - "${PAYMENT_MOCK_PORT}:8081"
     healthcheck:
@@ -77,7 +76,8 @@ services:
       REDIS_PORT: 6379
       PAYMENT_BASE_URL: http://payment-mock:8081
       DB_POOL_SIZE: ${DB_POOL_SIZE}
-      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70.0"
+    volumes:
+      - backend-logs:/logs
     ports:
       - "${BACKEND_PORT}:8080"
     depends_on:
@@ -137,3 +137,4 @@ services:
 volumes:
   mysql-data:
   grafana-data:
+  backend-logs:

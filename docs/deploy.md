@@ -113,9 +113,41 @@ Docker Hub private 리포 하나에 태그로 두 서비스를 담는다.
 
 네임스페이스는 CD가 배포 디렉터리에 `.env`로 써서 compose에 넘긴다. 조직 계정을 쓰면 Variable `DOCKER_NAMESPACE`를 등록한다(로그인 계정과 네임스페이스가 다른 경우). 없으면 `DOCKER_USERNAME`을 쓴다.
 
-롤백은 서버에서 태그를 바꿔 띄운다.
+## 이미지 보존
+
+배포할 때 현재 이미지를 `-prev` 태그로 남기고 새 이미지를 받는다. 서버에는 **최신과 직전 두 개만** 남고 그보다 오래된 것은 정리된다.
+
+```
+happyalsrl/givemeticket:backend        최신
+happyalsrl/givemeticket:backend-prev   직전
+```
+
+## 롤백
+
+직전 버전으로 되돌릴 때는 태그를 바꿔치기한다. 네트워크 없이 즉시 된다.
 
 ```bash
 cd ~/givemeticket-prod
-docker compose up -d --no-deps backend   # 이미지 태그를 sha 태그로 바꾼 뒤 실행
+NS=$(grep DOCKER_NAMESPACE .env | cut -d= -f2)
+docker tag $NS/givemeticket:backend-prev $NS/givemeticket:backend
+docker compose up -d --no-deps --force-recreate backend
 ```
+
+더 오래된 버전은 레지스트리의 커밋 sha 태그에서 받는다.
+
+```bash
+docker pull $NS/givemeticket:backend-<sha>
+docker tag  $NS/givemeticket:backend-<sha> $NS/givemeticket:backend
+docker compose up -d --no-deps --force-recreate backend
+```
+
+## 진단 파일
+
+heap dump·GC 로그·hs_err 파일은 `backend-logs` 볼륨의 `/logs`에 쌓인다.
+
+```bash
+docker compose exec backend ls -la /logs /logs/dumps
+docker cp $(docker compose ps -q backend):/logs/gc.log .
+```
+
+GC 로그는 5MB × 3개로 회전한다. heap dump는 OOM 시 한 번 생성되며 힙 크기만큼 커지므로, 디스크가 빠듯하면 확인 후 지운다.
