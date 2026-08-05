@@ -67,6 +67,9 @@ services:
   backend:
     build: .
     environment:
+      # dev 프로파일은 콘솔 + /logs/app/*.log 파일에 동시에 JSON 을 쓴다.
+      # 파일이 있어야 obs 프로파일의 alloy 가 tail 할 수 있다.
+      SPRING_PROFILES_ACTIVE: dev
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
       MYSQL_DATABASE: ${MYSQL_DATABASE}
@@ -111,6 +114,41 @@ services:
           cpus: "0.5"
           memory: 512m
 
+  loki:
+    image: grafana/loki:3.3.2
+    profiles: ["obs"]
+    command: ["-config.file=/etc/loki/loki-config.yml"]
+    volumes:
+      - ./observability/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/loki
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512m
+
+  alloy:
+    image: grafana/alloy:v1.5.1
+    profiles: ["obs"]
+    environment:
+      ALLOY_ENV: local
+      TZ: Asia/Seoul
+    volumes:
+      - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - backend-logs:/logs:ro
+      - alloy-data:/var/lib/alloy/data
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --storage.path=/var/lib/alloy/data
+    depends_on:
+      - loki
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256m
+
   grafana:
     image: grafana/grafana:11.2.0
     profiles: ["obs"]
@@ -128,6 +166,7 @@ services:
       - "${GRAFANA_PORT}:3000"
     depends_on:
       - prometheus
+      - loki
     deploy:
       resources:
         limits:
@@ -138,3 +177,5 @@ volumes:
   mysql-data:
   grafana-data:
   backend-logs:
+  loki-data:
+  alloy-data:

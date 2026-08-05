@@ -1,0 +1,61 @@
+logging {
+  level  = "warn"
+  format = "logfmt"
+}
+
+// backend 컨테이너와 같은 backend-logs 볼륨을 read-only 로 마운트해서 tail 한다.
+// gc.log / hs_err_pid*.log 와 섞이지 않도록 app 하위 디렉터리만 본다.
+local.file_match "app_logs" {
+  path_targets = [{ __path__ = "/logs/app/*.log" }]
+  sync_period  = "10s"
+}
+
+loki.source.file "app" {
+  targets       = local.file_match.app_logs.targets
+  forward_to    = [loki.process.app.receiver]
+  tail_from_end = false
+}
+
+loki.process "app" {
+  forward_to = [loki.write.default.receiver]
+
+  // logback 이 이미 JSON 한 줄로 뱉으므로 multiline 스티칭이 필요 없다.
+  // "@timestamp" 는 JMESPath 에서 특수문자라 따옴표로 감싸야 한다.
+  stage.json {
+    expressions = {
+      severity = "severity",
+      log_type = "logType",
+      ts       = "\"@timestamp\"",
+    }
+  }
+
+  // 로그 시각은 Alloy 가 파일을 읽은 시각이 아니라 logback 이 찍은 시각을 쓴다.
+  stage.timestamp {
+    source = "ts"
+    format = "RFC3339"
+  }
+
+  // 검색에 쓸 저카디널리티 필드만 라벨로 승격한다.
+  // uri, request_id 같은 고카디널리티 필드는 절대 라벨로 올리지 않는다 (Loki 인덱스 폭발).
+  stage.labels {
+    values = {
+      level    = "severity",
+      log_type = "log_type",
+    }
+  }
+
+  stage.static_labels {
+    values = {
+      service = "givemeticket-api",
+      env     = sys.env("ALLOY_ENV"),
+    }
+  }
+}
+
+loki.write "default" {
+  endpoint {
+    url        = "http://loki:3100/loki/api/v1/push"
+    batch_wait = "1s"
+    batch_size = "1MiB"
+  }
+}
