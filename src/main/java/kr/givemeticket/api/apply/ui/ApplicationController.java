@@ -1,0 +1,59 @@
+package kr.givemeticket.api.apply.ui;
+
+import java.net.URI;
+import kr.givemeticket.api.apply.application.ApplicationService;
+import kr.givemeticket.api.apply.ui.apiSpec.ApplicationApiSpec;
+import kr.givemeticket.api.apply.ui.dto.response.ApplyResponse;
+import kr.givemeticket.api.apply.ui.dto.response.ConfirmApplicationResponse;
+import kr.givemeticket.api.apply.ui.dto.response.GetApplicationResponse;
+import kr.givemeticket.api.global.web.CurrentUserId;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequiredArgsConstructor
+public class ApplicationController implements ApplicationApiSpec {
+
+    private final ApplicationService applicationService;
+
+    @Override
+    @PostMapping("campaigns/{campaignId}/apply")
+    public ResponseEntity<ApplyResponse> apply(
+            @CurrentUserId Long userId,
+            @PathVariable("campaignId") Long campaignId
+    ) {
+        ApplyResponse applyResponse = ApplyResponse.from(
+                applicationService.apply(campaignId, userId));
+
+        return ResponseEntity.created(URI.create("applications/" + applyResponse.id()))
+                .body(applyResponse);
+    }
+
+    @Override
+    @GetMapping("applications/{applicationId}")
+    public ResponseEntity<GetApplicationResponse> readApplication(
+            @CurrentUserId Long userId,
+            @PathVariable("applicationId") Long applicationId
+    ) {
+        GetApplicationResponse getApplicationResponse = GetApplicationResponse.from(
+                applicationService.getApplication(applicationId, userId));
+
+        return ResponseEntity.ok(getApplicationResponse);
+    }
+
+    @Override
+    @PostMapping("applications/{applicationId}/confirm")
+    public ResponseEntity<ConfirmApplicationResponse> confirmApplication(
+            @CurrentUserId Long userId,
+            @PathVariable("applicationId") Long applicationId
+    ) {
+        ConfirmApplicationResponse confirmApplicationResponse = ConfirmApplicationResponse.from(
+                applicationService.confirm(applicationId, userId));
+
+        return ResponseEntity.ok(confirmApplicationResponse);
+    }
+}
