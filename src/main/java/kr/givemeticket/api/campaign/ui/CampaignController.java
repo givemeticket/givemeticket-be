@@ -7,6 +7,7 @@ import kr.givemeticket.api.campaign.ui.apiSpec.CampaignApiSpec;
 import kr.givemeticket.api.campaign.ui.dto.request.PostCampaignRequest;
 import kr.givemeticket.api.campaign.ui.dto.response.CreateCampaignResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignResponse;
+import kr.givemeticket.api.global.log.BusinessLogging;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,6 +23,7 @@ public class CampaignController implements CampaignApiSpec {
     private final CampaignService campaignService;
 
     @Override
+    @BusinessLogging("캠페인 생성")
     @PostMapping("campaigns")
     public ResponseEntity<CreateCampaignResponse> createCampaign(
             @Valid @RequestBody PostCampaignRequest request

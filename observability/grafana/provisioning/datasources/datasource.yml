@@ -8,3 +8,20 @@ datasources:
     url: http://prometheus:9090
     isDefault: true
     editable: true
+
+  - name: Loki
+    uid: loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: true
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        # 로그의 request_id 로 같은 요청이 남긴 모든 라인을 모아 본다.
+        - name: request_id
+          matcherType: label
+          matcherRegex: request_id
+          datasourceUid: loki
+          url: '{service="givemeticket-api"} | json | request_id="${__value.raw}"'
+          urlDisplayLabel: '이 요청의 전체 로그'

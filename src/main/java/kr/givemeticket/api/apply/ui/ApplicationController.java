@@ -6,6 +6,7 @@ import kr.givemeticket.api.apply.ui.apiSpec.ApplicationApiSpec;
 import kr.givemeticket.api.apply.ui.dto.response.ApplyResponse;
 import kr.givemeticket.api.apply.ui.dto.response.ConfirmApplicationResponse;
 import kr.givemeticket.api.apply.ui.dto.response.GetApplicationResponse;
+import kr.givemeticket.api.global.log.BusinessLogging;
 import kr.givemeticket.api.global.web.CurrentUserId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +22,7 @@ public class ApplicationController implements ApplicationApiSpec {
     private final ApplicationService applicationService;
 
     @Override
+    @BusinessLogging("캠페인 신청")
     @PostMapping("campaigns/{campaignId}/apply")
     public ResponseEntity<ApplyResponse> apply(
             @CurrentUserId Long userId,
@@ -46,6 +48,7 @@ public class ApplicationController implements ApplicationApiSpec {
     }
 
     @Override
+    @BusinessLogging("신청 확정(결제)")
     @PostMapping("applications/{applicationId}/confirm")
     public ResponseEntity<ConfirmApplicationResponse> confirmApplication(
             @CurrentUserId Long userId,

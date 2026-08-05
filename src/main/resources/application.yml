@@ -68,3 +68,9 @@ management:
 logging:
   level:
     kr.givemeticket: INFO
+
+# 로그 출력 형태(JSON/파일/콘솔)는 logback-spring.xml 이 프로파일별로 결정한다.
+# exclude-patterns, masked-keys 를 지정하지 않으면 LogProperties 의 기본값이 쓰인다.
+app:
+  logging:
+    max-body-length: ${LOG_MAX_BODY_LENGTH:4096}

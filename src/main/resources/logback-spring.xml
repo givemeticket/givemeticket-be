@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <springProfile name="dev">
+        <include resource="logback-dev.xml"/>
+    </springProfile>
+
+    <springProfile name="prod">
+        <include resource="logback-prod.xml"/>
+    </springProfile>
+
+    <!-- local, test, 그리고 프로파일이 지정되지 않은 실행(bootRun 등) -->
+    <springProfile name="!dev &amp; !prod">
+        <include resource="logback-local.xml"/>
+    </springProfile>
+</configuration>

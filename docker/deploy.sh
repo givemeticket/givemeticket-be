@@ -40,7 +40,7 @@ echo "🚀 ${SERVICE} 재기동..."
 docker compose -f "$COMPOSE_FILE" up -d --no-deps --force-recreate "$SERVICE"
 
 echo "📊 관측 스택 반영..."
-docker compose -f "$COMPOSE_FILE" up -d --no-deps prometheus grafana
+docker compose -f "$COMPOSE_FILE" up -d --no-deps loki alloy prometheus grafana
 
 CERT_DIR="${APP_DIR}/certbot/conf/live/${DOMAIN:-api.givemeticket.site}"
 if [[ -L "${CERT_DIR}/fullchain.pem" || -f "${CERT_DIR}/fullchain.pem" ]]; then

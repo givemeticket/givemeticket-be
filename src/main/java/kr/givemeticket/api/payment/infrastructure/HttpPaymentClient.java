@@ -1,5 +1,6 @@
 package kr.givemeticket.api.payment.infrastructure;
 
+import kr.givemeticket.api.global.log.dto.ErrorLog;
 import kr.givemeticket.api.payment.domain.PaymentClient;
 import kr.givemeticket.api.payment.domain.PaymentException;
 import kr.givemeticket.api.payment.domain.PaymentResult;
@@ -7,6 +8,8 @@ import kr.givemeticket.api.payment.infrastructure.dto.PaymentChargeRequest;
 import kr.givemeticket.api.payment.infrastructure.dto.PaymentChargeResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.logstash.logback.marker.Markers;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -34,7 +37,9 @@ public class HttpPaymentClient implements PaymentClient {
                     ? PaymentResult.approved(response.transactionId())
                     : PaymentResult.declined();
         } catch (RestClientException e) {
-            log.warn("payment gateway call failed: applicationId={}, cause={}", applicationId, e.toString());
+            // PaymentException 은 원인 예외를 감싸지 않으므로 실제 원인은 여기서만 남는다.
+            ErrorLog errorLog = ErrorLog.externalError(HttpStatus.BAD_GATEWAY.value(), e, "PAYMENT_GATEWAY_ERROR");
+            log.error(Markers.appendEntries(errorLog.fields()), errorLog.summary(), e);
             throw PaymentException.gatewayError();
         }
     }
