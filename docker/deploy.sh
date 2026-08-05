@@ -45,7 +45,6 @@ docker compose -f "$COMPOSE_FILE" up -d --no-deps prometheus grafana
 if [[ -f "${APP_DIR}/certbot/conf/live/${DOMAIN:-api.givemeticket.site}/fullchain.pem" ]]; then
   echo "🔀 nginx 반영..."
   docker compose -f "$COMPOSE_FILE" up -d --no-deps nginx certbot
-  docker compose -f "$COMPOSE_FILE" exec -T nginx nginx -s reload 2>/dev/null || true
 else
   echo "⚠️  인증서가 없어 nginx를 건너뜁니다. nginx/init-letsencrypt.sh 를 먼저 실행하세요."
 fi

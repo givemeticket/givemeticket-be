@@ -96,9 +96,21 @@ DOMAIN=api.givemeticket.site CERTBOT_EMAIL=<이메일> ./nginx/init-letsencrypt.
 
 임시 자체 서명 인증서로 nginx를 띄우고 → ACME 챌린지를 받고 → 실제 인증서로 교체한 뒤 리로드한다. 인증서 없이 nginx를 먼저 띄울 수 없어 필요한 절차다.
 
-발급 한도(도메인당 주 5회)를 아끼려면 `STAGING=1`로 먼저 시험한다. 성공하면 `certbot/conf`를 지우고 다시 실행한다.
+발급 한도(도메인당 주 5회)를 아끼려면 `STAGING=1`로 먼저 시험한다.
 
-갱신은 certbot 컨테이너가 12시간마다 `certbot renew`를 돌리고, nginx가 6시간마다 리로드해 새 인증서를 집는다.
+성공한 뒤 실발급으로 넘어갈 때 **`certbot/conf`를 통째로 지우면 안 된다.** nginx가 그 디렉터리를 바인드 마운트하고 있어서, 호스트에서 지웠다 다시 만들면 컨테이너가 삭제된 옛 디렉터리를 계속 가리킨다. 도메인 디렉터리만 지운다.
+
+```bash
+docker run --rm --entrypoint /bin/rm \
+  -v ~/givemeticket-prod/certbot/conf:/etc/letsencrypt certbot/certbot \
+  -rf /etc/letsencrypt/live/api.givemeticket.site \
+     /etc/letsencrypt/archive/api.givemeticket.site \
+     /etc/letsencrypt/renewal/api.givemeticket.site.conf
+```
+
+발급이 끝나면 스크립트가 nginx를 재생성한다. 파일이 새로 생긴 경우 리로드만으로는 마운트가 갱신되지 않을 수 있다.
+
+갱신은 certbot 컨테이너가 12시간마다 `certbot renew`를 돌리고, nginx가 6시간마다 리로드해 새 인증서를 집는다. 갱신은 기존 파일을 덮어쓰므로 리로드로 충분하다.
 
 ## 이미지
 
