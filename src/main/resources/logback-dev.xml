@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<included>
+    <property name="LOGS_ROOT_PATH" value="${LOGS_ROOT_PATH:-/logs/app}"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp>
+                    <fieldName>@timestamp</fieldName>
+                    <timeZone>Asia/Seoul</timeZone>
+                    <pattern>yyyy-MM-dd'T'HH:mm:ss.SSSXXX</pattern>
+                </timestamp>
+                <logLevel>
+                    <fieldName>severity</fieldName>
+                </logLevel>
+                <loggerName>
+                    <fieldName>logger</fieldName>
+                </loggerName>
+                <threadName>
+                    <fieldName>thread</fieldName>
+                </threadName>
+                <logstashMarkers/>
+                <arguments/>
+                <mdc/>
+                <message>
+                    <fieldName>summary</fieldName>
+                </message>
+                <stackTrace>
+                    <fieldName>stack_trace</fieldName>
+                    <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                        <maxDepthPerThrowable>20</maxDepthPerThrowable>
+                        <maxLength>4096</maxLength>
+                        <rootCauseFirst>true</rootCauseFirst>
+                    </throwableConverter>
+                </stackTrace>
+            </providers>
+        </encoder>
+    </appender>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOGS_ROOT_PATH}/app.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOGS_ROOT_PATH}/app.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>7</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp>
+                    <fieldName>@timestamp</fieldName>
+                    <timeZone>Asia/Seoul</timeZone>
+                    <pattern>yyyy-MM-dd'T'HH:mm:ss.SSSXXX</pattern>
+                </timestamp>
+                <logLevel>
+                    <fieldName>severity</fieldName>
+                </logLevel>
+                <loggerName>
+                    <fieldName>logger</fieldName>
+                </loggerName>
+                <threadName>
+                    <fieldName>thread</fieldName>
+                </threadName>
+                <logstashMarkers/>
+                <arguments/>
+                <mdc/>
+                <message>
+                    <fieldName>summary</fieldName>
+                </message>
+                <stackTrace>
+                    <fieldName>stack_trace</fieldName>
+                    <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                        <maxDepthPerThrowable>20</maxDepthPerThrowable>
+                        <maxLength>4096</maxLength>
+                        <rootCauseFirst>true</rootCauseFirst>
+                    </throwableConverter>
+                </stackTrace>
+            </providers>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+</included>
