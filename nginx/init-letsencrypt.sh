@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$APP_DIR"
 
-DOMAIN="${DOMAIN:?DOMAIN 환경변수가 필요합니다}"
+if [[ -f "${APP_DIR}/.env" ]]; then
+  set -a; . "${APP_DIR}/.env"; set +a
+fi
+
+DOMAIN="${DOMAIN:?DOMAIN이 필요합니다 (.env 또는 환경변수)}"
 EMAIL="${CERTBOT_EMAIL:?CERTBOT_EMAIL 환경변수가 필요합니다}"
 STAGING="${STAGING:-0}"
 
@@ -21,8 +25,8 @@ mkdir -p ./certbot/conf ./certbot/www
 
 echo "🔧 nginx 기동용 임시 자체 서명 인증서 생성..."
 mkdir -p "$CERT_PATH"
-docker run --rm -v "$APP_DIR/certbot/conf:/etc/letsencrypt" certbot/certbot \
-  sh -c "openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
+docker run --rm --entrypoint /bin/sh -v "$APP_DIR/certbot/conf:/etc/letsencrypt" certbot/certbot \
+  -c "openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
     -keyout '/etc/letsencrypt/live/${DOMAIN}/privkey.pem' \
     -out '/etc/letsencrypt/live/${DOMAIN}/fullchain.pem' \
     -subj '/CN=localhost'"
@@ -32,8 +36,8 @@ docker compose up -d nginx
 sleep 5
 
 echo "🗑  임시 인증서 삭제..."
-docker run --rm -v "$APP_DIR/certbot/conf:/etc/letsencrypt" certbot/certbot \
-  rm -rf "/etc/letsencrypt/live/${DOMAIN}" \
+docker run --rm --entrypoint /bin/rm -v "$APP_DIR/certbot/conf:/etc/letsencrypt" certbot/certbot \
+  -rf "/etc/letsencrypt/live/${DOMAIN}" \
          "/etc/letsencrypt/archive/${DOMAIN}" \
          "/etc/letsencrypt/renewal/${DOMAIN}.conf"
 
