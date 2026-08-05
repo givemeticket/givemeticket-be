@@ -95,5 +95,45 @@ services:
         reservations:
           memory: 512m
 
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    profiles: ["obs"]
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=2h"
+    ports:
+      - "9090:9090"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512m
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    profiles: ["obs"]
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_USERS_DEFAULT_THEME: light
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512m
+
 volumes:
   mysql-data:
+  grafana-data:
