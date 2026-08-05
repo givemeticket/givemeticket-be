@@ -1,0 +1,4 @@
+[submodule "docker/config"]
+	path = docker/config
+	url = https://github.com/givemeticket/givemeticket-submodule.git
+	branch = main

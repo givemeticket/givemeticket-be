@@ -1,0 +1,110 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "time": { "from": "now-15m", "to": "now" },
+  "refresh": "5s",
+  "title": "GiveMeTicket — 부하/병목",
+  "uid": "givemeticket-load",
+  "schemaVersion": 39,
+  "version": 1,
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "HTTP 지연 p95 (초)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{job=\"givemeticket-backend\"}[1m])) by (le))",
+          "legendFormat": "전체 p95"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{job=\"givemeticket-backend\", uri=\"/campaigns/{campaignId}/apply\"}[1m])) by (le))",
+          "legendFormat": "apply p95"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "요청률 (상태코드별, req/s)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_requests_seconds_count{job=\"givemeticket-backend\"}[1m])) by (status)",
+          "legendFormat": "{{status}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "HikariCP 커넥션 (pending가 튀면 풀 고갈)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "hikaricp_connections_pending{job=\"givemeticket-backend\"}", "legendFormat": "pending(대기)" },
+        { "refId": "B", "expr": "hikaricp_connections_active{job=\"givemeticket-backend\"}", "legendFormat": "active(사용중)" },
+        { "refId": "C", "expr": "hikaricp_connections_idle{job=\"givemeticket-backend\"}", "legendFormat": "idle(유휴)" },
+        { "refId": "D", "expr": "hikaricp_connections_max{job=\"givemeticket-backend\"}", "legendFormat": "max(풀 크기)" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "커넥션 획득 대기 최대(초)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "hikaricp_connections_acquire_seconds_max{job=\"givemeticket-backend\"}", "legendFormat": "acquire max" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Tomcat 스레드 (busy가 max에 붙으면 스레드 포화)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "tomcat_threads_busy_threads{job=\"givemeticket-backend\"}", "legendFormat": "busy" },
+        { "refId": "B", "expr": "tomcat_threads_current_threads{job=\"givemeticket-backend\"}", "legendFormat": "current" },
+        { "refId": "C", "expr": "tomcat_threads_config_max_threads{job=\"givemeticket-backend\"}", "legendFormat": "max" }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "프로세스 CPU 사용률",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1 }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "process_cpu_usage{job=\"givemeticket-backend\"}", "legendFormat": "backend" },
+        { "refId": "B", "expr": "process_cpu_usage{job=\"payment-mock\"}", "legendFormat": "payment" }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "JVM Heap 사용(바이트)",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "sum(jvm_memory_used_bytes{job=\"givemeticket-backend\", area=\"heap\"})", "legendFormat": "backend heap" }
+      ]
+    }
+  ]
+}

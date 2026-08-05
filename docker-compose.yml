@@ -2,16 +2,16 @@ services:
   mysql:
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: givemeticket
-      MYSQL_USER: givemeticket
-      MYSQL_PASSWORD: givemeticket
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
-      - "3307:3306"
+      - "${MYSQL_PORT}:3306"
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -27,7 +27,7 @@ services:
     image: redis:7-alpine
     command: ["redis-server", "--maxmemory", "384mb", "--maxmemory-policy", "noeviction"]
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -44,14 +44,14 @@ services:
   payment-mock:
     build: ./payment-mock
     environment:
-      PAYMENT_DELAY_MS: 0
-      PAYMENT_JITTER_MS: 0
-      PAYMENT_ERROR_RATE: 0.0
-      PAYMENT_TIMEOUT_RATE: 0.0
-      PAYMENT_DECLINE_RATE: 0.0
+      PAYMENT_DELAY_MS: ${PAYMENT_DELAY_MS}
+      PAYMENT_JITTER_MS: ${PAYMENT_JITTER_MS}
+      PAYMENT_ERROR_RATE: ${PAYMENT_ERROR_RATE}
+      PAYMENT_TIMEOUT_RATE: ${PAYMENT_TIMEOUT_RATE}
+      PAYMENT_DECLINE_RATE: ${PAYMENT_DECLINE_RATE}
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=55.0 -XX:+UseSerialGC -Xss512k"
     ports:
-      - "18081:8081"
+      - "${PAYMENT_MOCK_PORT}:8081"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q UP"]
       interval: 5s
@@ -70,16 +70,16 @@ services:
     environment:
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
-      MYSQL_DATABASE: givemeticket
-      MYSQL_USER: givemeticket
-      MYSQL_PASSWORD: givemeticket
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       PAYMENT_BASE_URL: http://payment-mock:8081
-      DB_POOL_SIZE: 10
+      DB_POOL_SIZE: ${DB_POOL_SIZE}
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70.0"
     ports:
-      - "18080:8080"
+      - "${BACKEND_PORT}:8080"
     depends_on:
       mysql:
         condition: service_healthy
@@ -95,5 +95,45 @@ services:
         reservations:
           memory: 512m
 
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    profiles: ["obs"]
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=2h"
+    ports:
+      - "${PROMETHEUS_PORT}:9090"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512m
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    profiles: ["obs"]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_USERS_DEFAULT_THEME: light
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "${GRAFANA_PORT}:3000"
+    depends_on:
+      - prometheus
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512m
+
 volumes:
   mysql-data:
+  grafana-data:
