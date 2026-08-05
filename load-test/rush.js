@@ -8,6 +8,7 @@ const RATE = Number(__ENV.RATE || 500);
 const DURATION = __ENV.DURATION || '30s';
 const PRE_VUS = Number(__ENV.PRE_VUS || 200);
 const MAX_VUS = Number(__ENV.MAX_VUS || 2000);
+const API = `${BASE_URL}/api/v1`;
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
 http.setResponseCallback(http.expectedStatuses(200, 201, 409));
@@ -35,7 +36,7 @@ export const options = {
 export function setup() {
   const openAt = new Date(Date.now() + 5000).toISOString().slice(0, 19);
   const res = http.post(
-    `${BASE_URL}/campaigns`,
+    `${API}/campaigns`,
     JSON.stringify({ title: 'k6 rush', totalStock: STOCK, openAt }),
     { headers: JSON_HEADERS }
   );
@@ -43,7 +44,7 @@ export function setup() {
   console.log(`campaign=${campaignId}, stock=${STOCK}, openAt=${openAt} (UTC)`);
 
   for (let i = 0; i < 30; i++) {
-    if (http.get(`${BASE_URL}/campaigns/${campaignId}`).json('status') === 'OPEN') {
+    if (http.get(`${API}/campaigns/${campaignId}`).json('status') === 'OPEN') {
       console.log('campaign OPEN — 부하 시작');
       break;
     }
@@ -54,7 +55,7 @@ export function setup() {
 
 export default function (data) {
   const userId = __VU * 1000000 + __ITER;
-  const res = http.post(`${BASE_URL}/campaigns/${data.campaignId}/apply`, null, {
+  const res = http.post(`${API}/campaigns/${data.campaignId}/apply`, null, {
     headers: { 'X-User-Id': String(userId) },
   });
 
@@ -67,7 +68,7 @@ export default function (data) {
 }
 
 export function teardown(data) {
-  const remaining = http.get(`${BASE_URL}/campaigns/${data.campaignId}`).json('remainingStock');
+  const remaining = http.get(`${API}/campaigns/${data.campaignId}`).json('remainingStock');
   console.log('==================================================');
   console.log(`잔여 재고 = ${remaining}  (0 이상이면 오버셀 없음)`);
   console.log(`정원 = ${STOCK} → apply_created가 ${STOCK} 이하이면 정상`);

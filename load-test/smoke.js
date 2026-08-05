@@ -2,6 +2,7 @@ import http from 'k6/http';
 import { check, sleep } from 'k6';
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:18080';
+const API = `${BASE_URL}/api/v1`;
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
 export const options = {
@@ -15,7 +16,7 @@ export const options = {
 export default function () {
   const openAt = new Date(Date.now() + 4000).toISOString().slice(0, 19);
   const createRes = http.post(
-    `${BASE_URL}/campaigns`,
+    `${API}/campaigns`,
     JSON.stringify({ title: 'k6 smoke', totalStock: 10, openAt }),
     { headers: JSON_HEADERS }
   );
@@ -25,11 +26,11 @@ export default function () {
   let status = 'SCHEDULED';
   for (let i = 0; i < 15 && status !== 'OPEN'; i++) {
     sleep(1);
-    status = http.get(`${BASE_URL}/campaigns/${campaignId}`).json('status');
+    status = http.get(`${API}/campaigns/${campaignId}`).json('status');
   }
   check(null, { '캠페인 OPEN 전환': () => status === 'OPEN' });
 
-  const applyRes = http.post(`${BASE_URL}/campaigns/${campaignId}/apply`, null, {
+  const applyRes = http.post(`${API}/campaigns/${campaignId}/apply`, null, {
     headers: { 'X-User-Id': '1' },
   });
   check(applyRes, {
@@ -38,7 +39,7 @@ export default function () {
   });
   const applicationId = applyRes.json('id');
 
-  const confirmRes = http.post(`${BASE_URL}/applications/${applicationId}/confirm`, null, {
+  const confirmRes = http.post(`${API}/applications/${applicationId}/confirm`, null, {
     headers: { 'X-User-Id': '1' },
   });
   check(confirmRes, {
