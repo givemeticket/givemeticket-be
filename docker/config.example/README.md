@@ -1,11 +1,13 @@
 # 프로덕션 설정 템플릿
 
-이 디렉터리는 **템플릿**이다. 실제 값은 private 설정 리포에 두고, 배포 시 러너가 `docker/config/`로 클론한다.
+이 디렉터리는 **템플릿**이다. 실제 값은 private 설정 리포에 두고, `docker/config` 서브모듈로 연결한다.
 
-## private 설정 리포 만들기
+## private 설정 리포
+
+https://github.com/givemeticket/givemeticket-submodule
 
 ```bash
-gh repo create givemeticket/givemeticket-submodule --private --clone
+git clone https://github.com/givemeticket/givemeticket-submodule
 cd givemeticket-submodule
 ```
 
@@ -25,5 +27,4 @@ cd givemeticket-submodule
 | --- | --- | --- |
 | Secret | `SUBMODULE_KEY` | 설정 리포에 Contents:Read 권한이 있는 PAT |
 | Secret | `DOCKER_USERNAME` / `DOCKER_PASSWORD` | Docker Hub 계정 |
-| Variable | `CONFIG_REPO` | 설정 리포 (기본 `givemeticket/givemeticket-submodule`) |
 | Variable | `DEPLOY_DIR` | 서버 배포 경로 (기본 `~/givemeticket-prod`) |

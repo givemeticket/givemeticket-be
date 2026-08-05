@@ -85,7 +85,6 @@ k6 run -e STOCK=100 -e RATE=800 -e DURATION=30s load-test/rush.js
 | --- | --- | --- |
 | Secret | `DOCKER_USERNAME` / `DOCKER_PASSWORD` | Docker Hub 계정 |
 | Secret | `SUBMODULE_KEY` | 설정 리포 Contents:Read 권한 PAT |
-| Variable | `CONFIG_REPO` | 설정 리포 (기본 `givemeticket/givemeticket-submodule`) |
 | Variable | `DEPLOY_DIR` | 서버 배포 경로 (기본 `~/givemeticket-prod`) |
 
 **3. self-hosted 러너 등록** — 배포 서버에서 실행한다. 토큰은 Settings → Actions → Runners → New self-hosted runner에서 발급한다.

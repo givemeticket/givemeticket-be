@@ -123,17 +123,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Fetch private config
+      - name: Fetch config submodule (private)
         env:
           SUBMODULE_KEY: ${{ secrets.SUBMODULE_KEY }}
-          CONFIG_REPO: ${{ vars.CONFIG_REPO }}
         run: |
           set -euo pipefail
-          CONFIG_REPO="${CONFIG_REPO:-givemeticket/givemeticket-submodule}"
-          rm -rf docker/config
-          git clone --depth 1 \
-            "https://x-access-token:${SUBMODULE_KEY}@github.com/${CONFIG_REPO}.git" \
-            docker/config
+          REPO_URL="https://github.com/givemeticket/givemeticket-submodule"
+          git -c url."https://x-access-token:${SUBMODULE_KEY}@${REPO_URL#https://}".insteadOf="${REPO_URL}" \
+            submodule update --init --remote docker/config
           test -f docker/config/application-prod.yml
           test -f docker/config/mysql.env
           test -f docker/config/grafana.env
