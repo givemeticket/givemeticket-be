@@ -32,6 +32,16 @@ payment:
   connect-timeout-ms: ${PAYMENT_CONNECT_TIMEOUT_MS:2000}
   read-timeout-ms: ${PAYMENT_READ_TIMEOUT_MS:3000}
 
+springdoc:
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:true}
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:true}
+    path: /swagger-ui
+    tags-sorter: alpha
+    operations-sorter: method
+
 management:
   endpoints:
     web:
