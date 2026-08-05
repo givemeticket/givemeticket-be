@@ -1,0 +1,352 @@
+{
+  "uid": "givemeticket-logs",
+  "title": "GiveMeTicket — 로그",
+  "tags": ["givemeticket", "logs", "loki"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "서비스",
+        "type": "query",
+        "datasource": { "type": "loki", "uid": "loki" },
+        "query": { "label": "service", "refId": "LokiVariableQueryEditor-VariableQuery", "type": 1 },
+        "refresh": 1,
+        "current": {},
+        "options": []
+      },
+      {
+        "name": "env",
+        "label": "환경",
+        "type": "query",
+        "datasource": { "type": "loki", "uid": "loki" },
+        "query": { "label": "env", "refId": "LokiVariableQueryEditor-VariableQuery", "type": 1 },
+        "refresh": 1,
+        "current": {},
+        "options": []
+      },
+      {
+        "name": "search",
+        "label": "검색어",
+        "type": "textbox",
+        "query": "",
+        "current": { "text": "", "value": "" },
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "한눈에 보기",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "서버 오류",
+      "description": "우리 코드의 결함. 0이 아니면 봐야 한다.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "instant",
+          "expr": "sum(count_over_time({service=\"$service\", env=\"$env\", log_type=\"SERVER_ERROR\"}[$__range]))"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "mappings": [{ "type": "special", "options": { "match": "null", "result": { "text": "0" } } }],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "외부 연동 오류",
+      "description": "결제 게이트웨이 등 외부 시스템 실패",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "instant",
+          "expr": "sum(count_over_time({service=\"$service\", env=\"$env\", log_type=\"EXTERNAL_ERROR\"}[$__range]))"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "mappings": [{ "type": "special", "options": { "match": "null", "result": { "text": "0" } } }],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 1 }] }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "잘못된 요청",
+      "description": "클라이언트 잘못. 많아도 장애는 아니지만 추이는 본다.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "instant",
+          "expr": "sum(count_over_time({service=\"$service\", env=\"$env\", log_type=\"CLIENT_ERROR\"}[$__range]))"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "mappings": [{ "type": "special", "options": { "match": "null", "result": { "text": "0" } } }],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "처리한 요청",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "instant",
+          "expr": "sum(count_over_time({service=\"$service\", env=\"$env\", log_type=\"RESPONSE\"}[$__range]))"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "mappings": [{ "type": "special", "options": { "match": "null", "result": { "text": "0" } } }],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "text", "value": null }] }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "piechart",
+      "title": "레벨 분포",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 1 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "instant",
+          "expr": "sum by (level) (count_over_time({service=\"$service\", env=\"$env\"}[$__range]))",
+          "legendFormat": "{{level}}"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "list", "placement": "right", "showLegend": true },
+        "pieType": "donut",
+        "displayLabels": ["name", "value"],
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "ERROR" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] },
+          { "matcher": { "id": "byName", "options": "WARN" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] },
+          { "matcher": { "id": "byName", "options": "INFO" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }] }
+        ]
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "로그 유입량 (종류별, 초당)",
+      "description": "logType 라벨 기준. 특정 종류만 튀면 그쪽을 파고들면 된다.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 5 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "label_replace(sum by (log_type) (rate({service=\"$service\", env=\"$env\"}[$__auto])), \"log_type\", \"FRAMEWORK\", \"log_type\", \"^$\")",
+          "legendFormat": "{{log_type}}"
+        }
+      ],
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["max", "mean"], "showLegend": true } },
+      "fieldConfig": {
+        "defaults": { "unit": "logs", "custom": { "fillOpacity": 15, "lineWidth": 1, "showPoints": "never", "stacking": { "mode": "normal" } } },
+        "overrides": []
+      }
+    },
+    {
+      "type": "row",
+      "title": "HTTP",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "응답 상태코드 (초당)",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (status) (rate({service=\"$service\", env=\"$env\", log_type=\"RESPONSE\"} | json [$__auto]))",
+          "legendFormat": "{{status}}"
+        }
+      ],
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["max"], "showLegend": true } },
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "custom": { "fillOpacity": 15, "lineWidth": 1, "showPoints": "never", "stacking": { "mode": "normal" } } },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "응답 시간 (ms)",
+      "description": "LogFilter가 기록한 durationMs. 정확한 지연 분석은 Prometheus 대시보드를 쓰고, 여기선 로그와 같이 보기 위한 참고용이다.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "quantile_over_time(0.95, {service=\"$service\", env=\"$env\", log_type=\"RESPONSE\"} | json | unwrap durationMs [$__auto]) by (service)",
+          "legendFormat": "p95"
+        },
+        {
+          "refId": "B",
+          "expr": "max_over_time({service=\"$service\", env=\"$env\", log_type=\"RESPONSE\"} | json | unwrap durationMs [$__auto]) by (service)",
+          "legendFormat": "max"
+        }
+      ],
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "fieldConfig": {
+        "defaults": { "unit": "ms", "custom": { "fillOpacity": 5, "lineWidth": 2, "showPoints": "never" } },
+        "overrides": []
+      }
+    },
+    {
+      "type": "logs",
+      "title": "느린 요청 (500ms 초과)",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 22 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{service=\"$service\", env=\"$env\", log_type=\"RESPONSE\"} | json | durationMs > 500"
+        }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true }
+    },
+    {
+      "type": "row",
+      "title": "오류",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 30 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "barchart",
+      "title": "오류 코드 Top 10",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 31 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "instant",
+          "expr": "topk(10, sum by (code) (count_over_time({service=\"$service\", env=\"$env\", log_type=~\"CLIENT_ERROR|EXTERNAL_ERROR|SERVER_ERROR\"} | json [$__range])))",
+          "legendFormat": "{{code}}"
+        }
+      ],
+      "options": { "orientation": "horizontal", "legend": { "showLegend": false }, "xTickLabelRotation": 0 },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    {
+      "type": "logs",
+      "title": "서버 / 외부 오류 로그",
+      "description": "스택트레이스는 로그 라인을 펼치면 stack_trace 필드에서 볼 수 있다.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 31 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{service=\"$service\", env=\"$env\", log_type=~\"SERVER_ERROR|EXTERNAL_ERROR\"}"
+        }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true }
+    },
+    {
+      "type": "row",
+      "title": "비즈니스",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "비즈니스 액션 (초당)",
+      "description": "@BusinessLogging이 붙은 액션. 성공/실패를 따로 본다.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 41 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (action, success) (rate({service=\"$service\", env=\"$env\", log_type=\"BUSINESS\"} | json [$__auto]))",
+          "legendFormat": "{{action}} / {{success}}"
+        }
+      ],
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["max"], "showLegend": true } },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "fillOpacity": 10, "lineWidth": 1, "showPoints": "never" } },
+        "overrides": []
+      }
+    },
+    {
+      "type": "barchart",
+      "title": "액션별 성공 / 실패",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 41 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "instant",
+          "expr": "sum by (action, success) (count_over_time({service=\"$service\", env=\"$env\", log_type=\"BUSINESS\"} | json [$__range]))",
+          "legendFormat": "{{action}} / {{success}}"
+        }
+      ],
+      "options": { "orientation": "horizontal", "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    {
+      "type": "row",
+      "title": "로그 탐색",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 49 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "logs",
+      "title": "전체 로그 — 검색어 변수로 필터",
+      "description": "상단 '검색어'에 문자열을 넣으면 해당 문자열이 포함된 로그만 보인다. request_id를 넣으면 그 요청이 남긴 로그 전체가 나온다.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 14, "w": 24, "x": 0, "y": 50 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{service=\"$service\", env=\"$env\"} |~ `$search`"
+        }
+      ],
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "prettifyLogMessage": false }
+    }
+  ]
+}
