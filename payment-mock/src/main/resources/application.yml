@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: payment-mock
+
+server:
+  port: 8081
+
+payment:
+  delay-ms: ${PAYMENT_DELAY_MS:0}
+  jitter-ms: ${PAYMENT_JITTER_MS:0}
+  error-rate: ${PAYMENT_ERROR_RATE:0.0}
+  timeout-rate: ${PAYMENT_TIMEOUT_RATE:0.0}
+  timeout-ms: ${PAYMENT_TIMEOUT_MS:30000}
+  decline-rate: ${PAYMENT_DECLINE_RATE:0.0}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    kr.givemeticket.payment: INFO
