@@ -41,7 +41,10 @@ push to main
 | --- | --- | --- |
 | Secret | `DOCKER_USERNAME` / `DOCKER_PASSWORD` | Docker Hub 계정 |
 | Secret | `SUBMODULE_KEY` | 설정 리포 Contents:Read 권한 PAT |
-| Variable | `DEPLOY_DIR` | 서버 배포 경로 (기본 `~/givemeticket-prod`) |
+| Variable | `DEPLOY_DIR` | (선택) 서버 배포 경로. 기본 `~/givemeticket-prod` |
+| Variable | `DOCKER_NAMESPACE` | (선택) Docker Hub 네임스페이스. 기본값은 `DOCKER_USERNAME` |
+
+비밀값은 반드시 **Secrets** 탭에 넣는다. Variables는 평문으로 저장되고 로그에도 마스킹 없이 찍힌다.
 
 **2. self-hosted 러너 등록** — 배포 서버에서 실행한다. 토큰은 Settings → Actions → Runners → New self-hosted runner에서 발급한다.
 
@@ -69,4 +72,22 @@ sudo usermod -aG docker $USER
 
 GCP 방화벽에서 80과 3001 인그레스를 열어야 한다. 3001은 소스 IP를 제한하는 편이 좋다.
 
-`docker/docker-compose.prod.yml`의 이미지 네임스페이스가 `DOCKER_USERNAME`과 일치해야 한다.
+## 이미지
+
+Docker Hub private 리포 하나에 태그로 두 서비스를 담는다.
+
+| 태그 | 서비스 |
+| --- | --- |
+| `givemeticket:backend` | 최신 backend |
+| `givemeticket:payment-mock` | 최신 payment-mock |
+| `givemeticket:backend-<sha>` | 커밋별 고정 태그 (롤백용) |
+| `givemeticket:payment-mock-<sha>` | 〃 |
+
+네임스페이스는 CD가 배포 디렉터리에 `.env`로 써서 compose에 넘긴다. 조직 계정을 쓰면 Variable `DOCKER_NAMESPACE`를 등록한다(로그인 계정과 네임스페이스가 다른 경우). 없으면 `DOCKER_USERNAME`을 쓴다.
+
+롤백은 서버에서 태그를 바꿔 띄운다.
+
+```bash
+cd ~/givemeticket-prod
+docker compose up -d --no-deps backend   # 이미지 태그를 sha 태그로 바꾼 뒤 실행
+```

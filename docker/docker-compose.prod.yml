@@ -23,7 +23,7 @@ services:
       retries: 20
 
   payment-mock:
-    image: happyalsrl/givemeticket-payment-mock:release
+    image: ${DOCKER_NAMESPACE}/givemeticket:payment-mock
     restart: unless-stopped
     pull_policy: always
     environment:
@@ -35,7 +35,7 @@ services:
       retries: 30
 
   backend:
-    image: happyalsrl/givemeticket-be:release
+    image: ${DOCKER_NAMESPACE}/givemeticket:backend
     restart: unless-stopped
     pull_policy: always
     environment:
