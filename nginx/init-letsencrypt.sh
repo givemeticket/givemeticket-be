@@ -16,7 +16,14 @@ CERT_PATH="./certbot/conf/live/${DOMAIN}"
 
 if [[ -d "$CERT_PATH" ]]; then
   echo "✅ 이미 인증서가 있습니다: $CERT_PATH"
-  echo "   재발급하려면 이 디렉터리를 지우고 다시 실행하세요."
+  echo "   재발급하려면 아래처럼 도메인 디렉터리만 지우고 다시 실행하세요."
+  echo "   certbot/conf 를 통째로 지우면 nginx의 바인드 마운트가 끊깁니다."
+  echo
+  echo "   docker run --rm --entrypoint /bin/rm \\"
+  echo "     -v \"${APP_DIR}/certbot/conf:/etc/letsencrypt\" certbot/certbot \\"
+  echo "     -rf /etc/letsencrypt/live/${DOMAIN} \\"
+  echo "        /etc/letsencrypt/archive/${DOMAIN} \\"
+  echo "        /etc/letsencrypt/renewal/${DOMAIN}.conf"
   exit 0
 fi
 
@@ -59,7 +66,7 @@ docker run --rm \
     --no-eff-email \
     --non-interactive
 
-echo "🔄 nginx 리로드..."
-docker compose exec nginx nginx -s reload
+echo "🔄 nginx 재생성..."
+docker compose up -d --force-recreate nginx
 
 echo "✅ 완료. https://${DOMAIN} 로 접속됩니다."
