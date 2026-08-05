@@ -3,6 +3,3 @@ build/
 .idea/
 *.iml
 .DS_Store
-.git/
-payment-mock/
-docker-compose.yml
