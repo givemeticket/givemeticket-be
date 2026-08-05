@@ -8,9 +8,9 @@ on:
       service:
         description: '재배포할 서비스'
         required: true
-        default: backend
+        default: all
         type: choice
-        options: [ backend, payment-mock ]
+        options: [ all, backend, payment-mock ]
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -46,7 +46,7 @@ jobs:
 
   build-backend:
     needs: changes
-    if: needs.changes.outputs.backend == 'true' || github.event.inputs.service == 'backend'
+    if: needs.changes.outputs.backend == 'true' || contains(fromJSON('["all","backend"]'), github.event.inputs.service)
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -85,7 +85,7 @@ jobs:
 
   build-payment-mock:
     needs: changes
-    if: needs.changes.outputs.payment-mock == 'true' || github.event.inputs.service == 'payment-mock'
+    if: needs.changes.outputs.payment-mock == 'true' || contains(fromJSON('["all","payment-mock"]'), github.event.inputs.service)
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout

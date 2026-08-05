@@ -13,7 +13,9 @@ push to main
            └─ deploy.sh <service>
 ```
 
-`workflow_dispatch`로 서비스를 골라 수동 재배포할 수 있다.
+`workflow_dispatch`로 서비스를 골라 수동 재배포할 수 있다. `all`은 두 이미지를 모두 빌드·push 한다.
+
+**첫 배포는 반드시 `workflow_dispatch`로 `all`을 돌린다.** Docker Hub에 이미지가 아직 없는 상태에서 배포만 실행되면 `docker compose pull`이 실패한다.
 
 ## 설정 분리
 
