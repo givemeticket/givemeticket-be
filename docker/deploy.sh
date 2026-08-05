@@ -42,7 +42,8 @@ docker compose -f "$COMPOSE_FILE" up -d --no-deps --force-recreate "$SERVICE"
 echo "📊 관측 스택 반영..."
 docker compose -f "$COMPOSE_FILE" up -d --no-deps prometheus grafana
 
-if [[ -f "${APP_DIR}/certbot/conf/live/${DOMAIN:-api.givemeticket.site}/fullchain.pem" ]]; then
+CERT_DIR="${APP_DIR}/certbot/conf/live/${DOMAIN:-api.givemeticket.site}"
+if [[ -L "${CERT_DIR}/fullchain.pem" || -f "${CERT_DIR}/fullchain.pem" ]]; then
   echo "🔀 nginx 반영..."
   docker compose -f "$COMPOSE_FILE" up -d --no-deps nginx certbot
 else
