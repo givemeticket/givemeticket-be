@@ -75,6 +75,10 @@ services:
       interval: 10s
       timeout: 3s
       retries: 30
+    deploy:
+      resources:
+        limits:
+          memory: 384m
 
   # backend 가 쓰는 backend-logs 볼륨을 read-only 로 붙여 /logs/app/*.log 를 tail → Loki 로 push.
   alloy:
@@ -93,6 +97,10 @@ services:
       - --storage.path=/var/lib/alloy/data
     depends_on:
       - loki
+    deploy:
+      resources:
+        limits:
+          memory: 128m
 
   grafana:
     image: grafana/grafana:11.2.0
