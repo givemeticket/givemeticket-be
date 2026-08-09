@@ -9,4 +9,10 @@ public interface PaymentClient {
      * @param paymentKey 멱등키. 같은 키로 다시 요청하면 PG는 첫 결과를 그대로 돌려준다
      */
     PaymentResult charge(String paymentKey, Long applicationId, Long userId);
+
+    /**
+     * @return 취소가 확인되면 true. 실패해도 예외를 던지지 않는다 —
+     *         환불 실패가 신청 취소를 되돌릴 이유는 없기 때문이다
+     */
+    boolean cancel(String paymentKey);
 }

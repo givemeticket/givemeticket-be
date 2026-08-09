@@ -9,7 +9,8 @@ public record FaultProperties(
         double errorRate,
         double timeoutRate,
         long timeoutMs,
-        double declineRate
+        double declineRate,
+        double cancelErrorRate
 ) {
 
     public FaultProperties {

@@ -81,7 +81,11 @@ docker compose stop mysql                 # 신청 기록 실패 → 커넥션 �
 | `PAYMENT_DECLINE_RATE=1.0` | 카드 거절 | `409 PAYMENT_DECLINED`, 재고 복원 |
 | `PAYMENT_ERROR_RATE=1.0` | 게이트웨이 5xx | `502 PAYMENT_GATEWAY_ERROR`, 재고 복원 |
 | `PAYMENT_TIMEOUT_RATE=1.0` | 응답 지연(read timeout) | `202` + `UNKNOWN`, **재고 유지** |
+| `PAYMENT_CANCEL_ERROR_RATE=1.0` | 환불 실패 | 취소는 `200` + `PENDING_RETRY`, 재고는 반납 |
 | `PAYMENT_DELAY_MS` / `PAYMENT_JITTER_MS` | 지연 주입 | 지연만 증가 |
+
+mock은 멱등키별로 결제 상태를 인메모리에 들고 있다. 같은 키로 다시 요청하면 결제를 새로 만들지
+않고 첫 결과를 돌려준다. `GET /payments/{paymentKey}`로 상태를 직접 확인할 수 있다.
 
 `UNKNOWN`은 실패가 아니라 "모름"이라 재고를 돌려주지 않는다. 이유와 이후 정산 설계는
 [docs/payment-flow.md](../docs/payment-flow.md) 참고. 정산 배치는 아직 미구현이라

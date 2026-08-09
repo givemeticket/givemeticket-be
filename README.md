@@ -34,6 +34,7 @@ docker compose --profile obs up -d
 | PATCH | `/campaigns/{id}` | 오픈 지연 / 정원 증원 | O (개설자) |
 | DELETE | `/campaigns/{id}` | 행사 삭제 (soft delete) | O (개설자) |
 | POST | `/campaigns/{id}/apply` | 신청. 재고 차감 + 결제 + 확정을 한 번에 처리 | O |
+| POST | `/applications/{id}/cancel` | 신청 취소. 재고 즉시 반납 | O |
 | GET | `/applications/{id}` | 신청 조회 | O |
 
 인증은 아직 `X-User-Id` 헤더다. 카카오/네이버 OIDC로 바꿀 때

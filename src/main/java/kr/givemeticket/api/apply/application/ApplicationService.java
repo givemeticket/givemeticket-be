@@ -4,10 +4,14 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import kr.givemeticket.api.apply.application.dto.response.ApplicationResponse;
+import kr.givemeticket.api.apply.application.dto.response.CancelResponse;
 import kr.givemeticket.api.apply.domain.Application;
 import kr.givemeticket.api.apply.domain.ApplicationRepository;
+import kr.givemeticket.api.apply.domain.ApplicationStatus;
 import kr.givemeticket.api.apply.domain.FailureReason;
 import kr.givemeticket.api.campaign.application.CampaignApplicationException;
+import kr.givemeticket.api.campaign.domain.Campaign;
+import kr.givemeticket.api.campaign.domain.CampaignRepository;
 import kr.givemeticket.api.campaign.domain.CampaignState;
 import kr.givemeticket.api.campaign.domain.CampaignStateRepository;
 import kr.givemeticket.api.campaign.domain.StockDecreaseResult;
@@ -15,6 +19,7 @@ import kr.givemeticket.api.campaign.domain.StockRepository;
 import kr.givemeticket.api.payment.domain.PaymentClient;
 import kr.givemeticket.api.payment.domain.PaymentException;
 import kr.givemeticket.api.payment.domain.PaymentResult;
+import kr.givemeticket.api.payment.domain.RefundStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -33,6 +38,7 @@ public class ApplicationService {
 
     private final ApplicationRepository applicationRepository;
     private final ApplicationPersister applicationPersister;
+    private final CampaignRepository campaignRepository;
     private final CampaignStateRepository campaignStateRepository;
     private final StockRepository stockRepository;
     private final PaymentClient paymentClient;
@@ -41,6 +47,7 @@ public class ApplicationService {
     public ApplicationService(
             ApplicationRepository applicationRepository,
             ApplicationPersister applicationPersister,
+            CampaignRepository campaignRepository,
             CampaignStateRepository campaignStateRepository,
             StockRepository stockRepository,
             PaymentClient paymentClient,
@@ -48,6 +55,7 @@ public class ApplicationService {
     ) {
         this.applicationRepository = applicationRepository;
         this.applicationPersister = applicationPersister;
+        this.campaignRepository = campaignRepository;
         this.campaignStateRepository = campaignStateRepository;
         this.stockRepository = stockRepository;
         this.paymentClient = paymentClient;
@@ -98,6 +106,60 @@ public class ApplicationService {
             return confirmWithoutPayment(campaignId, userId, state);
         }
         return reserveAndCharge(campaignId, userId, state);
+    }
+
+    /**
+     * 결제가 없던 신청은 외부 호출 없이 그 자리에서 끝난다.
+     * 결제가 있었으면 자리를 먼저 돌려주고 환불을 요청한다 — 환불이 실패해도 취소는 유지된다.
+     */
+    public CancelResponse cancel(Long applicationId, Long userId) {
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(ApplyApplicationException::applicationNotFound);
+        if (!application.isOwnedBy(userId)) {
+            throw ApplyApplicationException.forbidden();
+        }
+        if (application.getStatus() == ApplicationStatus.UNKNOWN
+                || application.getStatus() == ApplicationStatus.MANUAL_REVIEW) {
+            throw ApplyApplicationException.cancelPendingSettlement();
+        }
+        if (application.getStatus() != ApplicationStatus.CONFIRMED) {
+            throw ApplyApplicationException.notCancelable(application.getStatus());
+        }
+
+        Campaign campaign = campaignRepository.findById(application.getCampaignId())
+                .orElseThrow(CampaignApplicationException::campaignNotFound);
+
+        if (applicationPersister.cancel(applicationId) == 0) {
+            // 동시에 들어온 다른 취소가 먼저 통과했다. 재고를 또 돌려주면 정원을 넘는다.
+            throw ApplyApplicationException.notCancelable(
+                    currentStatusOf(applicationId));
+        }
+
+        stockRepository.restore(application.getCampaignId(), campaign.getTotalStock());
+        log.info("application cancelled: applicationId={}, campaignId={}",
+                applicationId, application.getCampaignId());
+
+        return new CancelResponse(currentStateOf(applicationId), refund(application, campaign));
+    }
+
+    private RefundStatus refund(Application application, Campaign campaign) {
+        if (!campaign.isRequiresPayment() || application.getPaymentKey() == null) {
+            return RefundStatus.NOT_REQUIRED;
+        }
+        if (paymentClient.cancel(application.getPaymentKey())) {
+            return RefundStatus.COMPLETED;
+        }
+        // 취소는 이미 확정됐다. 되돌리지 않고 남겨서 나중에 다시 시도한다.
+        // 자동 재시도 큐는 아직 없으므로 이 로그가 유일한 추적 수단이다.
+        log.error("refund request failed, retry needed: applicationId={}, paymentKey={}",
+                application.getId(), application.getPaymentKey());
+        return RefundStatus.PENDING_RETRY;
+    }
+
+    private ApplicationStatus currentStatusOf(Long applicationId) {
+        return applicationRepository.findById(applicationId)
+                .map(Application::getStatus)
+                .orElse(ApplicationStatus.CANCELLED);
     }
 
     @Transactional(readOnly = true)

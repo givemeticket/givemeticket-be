@@ -5,6 +5,7 @@ import kr.givemeticket.api.apply.application.ApplicationService;
 import kr.givemeticket.api.apply.application.dto.response.ApplicationResponse;
 import kr.givemeticket.api.apply.ui.apiSpec.ApplicationApiSpec;
 import kr.givemeticket.api.apply.ui.dto.response.ApplyResponse;
+import kr.givemeticket.api.apply.ui.dto.response.CancelApplicationResponse;
 import kr.givemeticket.api.apply.ui.dto.response.GetApplicationResponse;
 import kr.givemeticket.api.global.log.BusinessLogging;
 import kr.givemeticket.api.global.web.CurrentUserId;
@@ -39,6 +40,19 @@ public class ApplicationController implements ApplicationApiSpec {
 
         return ResponseEntity.created(URI.create("applications/" + applyResponse.id()))
                 .body(applyResponse);
+    }
+
+    @Override
+    @BusinessLogging("신청 취소")
+    @PostMapping("applications/{applicationId}/cancel")
+    public ResponseEntity<CancelApplicationResponse> cancelApplication(
+            @CurrentUserId Long userId,
+            @PathVariable("applicationId") Long applicationId
+    ) {
+        CancelApplicationResponse cancelApplicationResponse = CancelApplicationResponse.from(
+                applicationService.cancel(applicationId, userId));
+
+        return ResponseEntity.ok(cancelApplicationResponse);
     }
 
     @Override

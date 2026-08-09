@@ -12,6 +12,7 @@ payment:
   timeout-rate: ${PAYMENT_TIMEOUT_RATE:0.0}
   timeout-ms: ${PAYMENT_TIMEOUT_MS:30000}
   decline-rate: ${PAYMENT_DECLINE_RATE:0.0}
+  cancel-error-rate: ${PAYMENT_CANCEL_ERROR_RATE:0.0}
 
 management:
   endpoints:

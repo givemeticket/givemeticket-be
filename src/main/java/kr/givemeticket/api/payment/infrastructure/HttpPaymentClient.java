@@ -38,9 +38,14 @@ public class HttpPaymentClient implements PaymentClient {
                 logGatewayFailure(paymentKey, "PAYMENT_EMPTY_RESPONSE", null);
                 return PaymentResult.unknown();
             }
-            return response.isApproved()
-                    ? PaymentResult.approved(response.transactionId())
-                    : PaymentResult.declined();
+            if (response.isApproved()) {
+                return PaymentResult.approved(response.transactionId());
+            }
+            if (response.isProcessing()) {
+                // 같은 멱등키의 앞선 요청이 아직 진행 중이다. 거절로 단정하면 안 된다.
+                return PaymentResult.unknown();
+            }
+            return PaymentResult.declined();
 
         } catch (HttpClientErrorException e) {
             // 4xx: 우리 요청이 잘못됐다. 결제는 일어나지 않았다.
@@ -65,6 +70,21 @@ public class HttpPaymentClient implements PaymentClient {
         } catch (RestClientException e) {
             logGatewayFailure(paymentKey, "PAYMENT_UNKNOWN_ERROR", e);
             return PaymentResult.unknown();
+        }
+    }
+
+    @Override
+    public boolean cancel(String paymentKey) {
+        try {
+            paymentRestClient.post()
+                    .uri("/payments/{paymentKey}/cancel", paymentKey)
+                    .retrieve()
+                    .toBodilessEntity();
+            return true;
+        } catch (RestClientException e) {
+            // 취소 실패가 신청 취소를 되돌리지는 않는다. 남겨두고 나중에 다시 시도할 문제다.
+            logGatewayFailure(paymentKey, "PAYMENT_CANCEL_FAILED", e);
+            return false;
         }
     }
 

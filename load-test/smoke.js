@@ -45,6 +45,7 @@ export default function () {
     '무료 신청 201': (r) => r.status === 201,
     '무료 신청 CONFIRMED': (r) => r.json('status') === 'CONFIRMED',
   });
+  const freeApplicationId = freeApply.json('id');
 
   // 결제 있는 캠페인 — 재고 차감 + 결제까지 한 번에 처리된다.
   const paid = createCampaign('k6 smoke (paid)', true);
@@ -58,6 +59,7 @@ export default function () {
     '유료 신청 CONFIRMED': (r) => r.json('status') === 'CONFIRMED',
     '거래번호 발급': (r) => !!r.json('transactionId'),
   });
+  const paidApplicationId = paidApply.json('id');
 
   // 중복 신청은 막힌다.
   const duplicate = http.post(`${API}/campaigns/${paid.id}/apply`, null, {
@@ -130,4 +132,46 @@ export default function () {
   // 신청자가 있으면 삭제할 수 없다.
   const deleteRes = http.del(`${API}/campaigns/${paid.id}`, null, { headers: OWNER });
   check(deleteRes, { '신청자 있는 캠페인 삭제 409': (r) => r.status === 409 });
+
+  // 취소 — 결제가 없던 신청은 외부 호출 없이 그 자리에서 끝난다.
+  const cancelFree = http.post(`${API}/applications/${freeApplicationId}/cancel`, null, {
+    headers: { 'X-User-Id': '2' },
+  });
+  check(cancelFree, {
+    '무료 취소 200': (r) => r.status === 200,
+    '무료 취소 CANCELLED': (r) => r.json('status') === 'CANCELLED',
+    '무료 취소 환불 불필요': (r) => r.json('refundStatus') === 'NOT_REQUIRED',
+  });
+  check(http.get(`${API}/campaigns/${free.shortCode}`), {
+    '무료 취소 후 재고 복원': (r) => r.json('remainingStock') === 10,
+  });
+
+  check(http.post(`${API}/applications/${freeApplicationId}/cancel`, null, {
+    headers: { 'X-User-Id': '2' },
+  }), { '중복 취소 409': (r) => r.status === 409 });
+
+  check(http.post(`${API}/applications/${paidApplicationId}/cancel`, null, {
+    headers: { 'X-User-Id': '999' },
+  }), { '남의 신청 취소 403': (r) => r.status === 403 });
+
+  // 결제가 있던 신청은 자리를 먼저 돌려주고 환불을 요청한다.
+  const cancelPaid = http.post(`${API}/applications/${paidApplicationId}/cancel`, null, {
+    headers: { 'X-User-Id': '2' },
+  });
+  check(cancelPaid, {
+    '유료 취소 200': (r) => r.status === 200,
+    '유료 취소 CANCELLED': (r) => r.json('status') === 'CANCELLED',
+    '유료 취소 환불 완료': (r) => r.json('refundStatus') === 'COMPLETED',
+  });
+  check(http.get(`${API}/campaigns/${paid.shortCode}`), {
+    '유료 취소 후 재고 복원': (r) => r.json('remainingStock') === 20,
+  });
+
+  // 유효한 신청이 모두 빠지면 삭제할 수 있다.
+  check(http.del(`${API}/campaigns/${paid.id}`, null, { headers: OWNER }), {
+    '취소 후 캠페인 삭제 204': (r) => r.status === 204,
+  });
+  check(http.get(`${API}/campaigns/${paid.shortCode}`), {
+    '삭제된 캠페인 조회 410': (r) => r.status === 410,
+  });
 }

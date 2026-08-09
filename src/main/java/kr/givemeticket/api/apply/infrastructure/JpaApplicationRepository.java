@@ -65,4 +65,10 @@ public class JpaApplicationRepository implements ApplicationRepository {
         return springDataJpaApplicationRepository.markUnknownIfPending(
                 applicationId, LocalDateTime.now());
     }
+
+    @Override
+    public int cancelIfConfirmed(Long applicationId) {
+        return springDataJpaApplicationRepository.cancelIfConfirmed(
+                applicationId, LocalDateTime.now());
+    }
 }

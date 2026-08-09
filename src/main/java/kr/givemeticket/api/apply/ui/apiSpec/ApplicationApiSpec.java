@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import kr.givemeticket.api.apply.ui.dto.response.ApplyResponse;
+import kr.givemeticket.api.apply.ui.dto.response.CancelApplicationResponse;
 import kr.givemeticket.api.apply.ui.dto.response.GetApplicationResponse;
 import kr.givemeticket.api.global.web.CurrentUserId;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +32,25 @@ public interface ApplicationApiSpec {
             @Parameter(hidden = true) @CurrentUserId Long userId,
             @Parameter(description = "캠페인 ID", example = "1")
             @PathVariable("campaignId") Long campaignId
+    );
+
+    @Operation(summary = "신청 취소",
+            description = """
+                    확정된 신청만 취소할 수 있습니다. 취소되면 재고가 즉시 반납됩니다.
+
+                    - 결제가 없던 신청: 외부 호출 없이 즉시 취소. `refundStatus`는 NOT_REQUIRED
+                    - 결제가 있던 신청: 취소·재고 반납을 먼저 끝내고 환불을 요청합니다.
+                      환불까지 성공하면 COMPLETED, 환불 요청이 실패하면 PENDING_RETRY이며
+                      이 경우에도 신청 취소는 되돌리지 않습니다
+                    - 결제 결과 확인 중(UNKNOWN)인 신청은 409 APPLICATION_SETTLEMENT_PENDING
+                    - 그 밖의 상태는 409 APPLICATION_NOT_CANCELABLE
+                    """)
+    @Parameter(name = "X-User-Id", description = "유저 식별자", in = ParameterIn.HEADER, required = true,
+            schema = @Schema(type = "integer", format = "int64", example = "1"))
+    ResponseEntity<CancelApplicationResponse> cancelApplication(
+            @Parameter(hidden = true) @CurrentUserId Long userId,
+            @Parameter(description = "신청 ID", example = "1")
+            @PathVariable("applicationId") Long applicationId
     );
 
     @Operation(summary = "신청 내역 조회",

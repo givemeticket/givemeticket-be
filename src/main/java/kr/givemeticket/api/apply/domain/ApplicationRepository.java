@@ -29,4 +29,6 @@ public interface ApplicationRepository {
     int failIfPending(Long applicationId, FailureReason reason);
 
     int markUnknownIfPending(Long applicationId);
+
+    int cancelIfConfirmed(Long applicationId);
 }

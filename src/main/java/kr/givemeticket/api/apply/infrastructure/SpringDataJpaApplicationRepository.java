@@ -68,4 +68,18 @@ public interface SpringDataJpaApplicationRepository extends JpaRepository<Applic
                AND a.status = kr.givemeticket.api.apply.domain.ApplicationStatus.PENDING
             """)
     int markUnknownIfPending(@Param("id") Long id, @Param("now") LocalDateTime now);
+
+    /**
+     * 확정된 신청만 취소한다. 동시에 두 번 눌러도 한 번만 통과하므로 재고도 한 번만 돌아간다.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Application a
+               SET a.status = kr.givemeticket.api.apply.domain.ApplicationStatus.CANCELLED,
+                   a.expiresAt = null,
+                   a.updatedAt = :now
+             WHERE a.id = :id
+               AND a.status = kr.givemeticket.api.apply.domain.ApplicationStatus.CONFIRMED
+            """)
+    int cancelIfConfirmed(@Param("id") Long id, @Param("now") LocalDateTime now);
 }

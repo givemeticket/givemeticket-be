@@ -88,4 +88,9 @@ public class ApplicationPersister {
     public int markUnknown(Long applicationId) {
         return applicationRepository.markUnknownIfPending(applicationId);
     }
+
+    @Transactional
+    public int cancel(Long applicationId) {
+        return applicationRepository.cancelIfConfirmed(applicationId);
+    }
 }
