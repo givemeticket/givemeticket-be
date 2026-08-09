@@ -16,10 +16,13 @@ public record PostCampaignRequest(
 
         @NotNull(message = "openAt은 필수입니다.")
         @Future(message = "openAt은 미래 시각이어야 합니다.")
-        LocalDateTime openAt
+        LocalDateTime openAt,
+
+        @NotNull(message = "requiresPayment는 필수입니다.")
+        Boolean requiresPayment
 ) {
 
     public CampaignCreateRequest toCampaignCreateRequest() {
-        return new CampaignCreateRequest(title, totalStock, openAt);
+        return new CampaignCreateRequest(title, totalStock, openAt, requiresPayment);
     }
 }

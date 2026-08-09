@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import kr.givemeticket.api.campaign.domain.Campaign;
 import kr.givemeticket.api.campaign.domain.CampaignRepository;
+import kr.givemeticket.api.campaign.domain.CampaignState;
 import kr.givemeticket.api.campaign.domain.CampaignStateRepository;
 import kr.givemeticket.api.campaign.domain.CampaignStatus;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +29,8 @@ public class CampaignScheduler {
 
         for (Campaign campaign : targets) {
             campaign.open();
-            campaignStateRepository.open(campaign.getId());
+            campaignStateRepository.save(campaign.getId(),
+                    new CampaignState(campaign.isRequiresPayment(), campaign.getTotalStock()));
             log.info("campaign opened: id={}, title={}", campaign.getId(), campaign.getTitle());
         }
     }

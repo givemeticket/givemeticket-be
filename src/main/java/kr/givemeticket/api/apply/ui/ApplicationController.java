@@ -2,8 +2,10 @@ package kr.givemeticket.api.apply.ui;
 
 import java.net.URI;
 import kr.givemeticket.api.apply.application.ApplicationService;
+import kr.givemeticket.api.apply.application.dto.response.ApplicationResponse;
 import kr.givemeticket.api.apply.ui.apiSpec.ApplicationApiSpec;
 import kr.givemeticket.api.apply.ui.dto.response.ApplyResponse;
+import kr.givemeticket.api.apply.ui.dto.response.CancelApplicationResponse;
 import kr.givemeticket.api.apply.ui.dto.response.ConfirmApplicationResponse;
 import kr.givemeticket.api.apply.ui.dto.response.GetApplicationResponse;
 import kr.givemeticket.api.global.log.BusinessLogging;
@@ -36,6 +38,36 @@ public class ApplicationController implements ApplicationApiSpec {
     }
 
     @Override
+    @BusinessLogging("신청 확정(결제)")
+    @PostMapping("applications/{applicationId}/confirm")
+    public ResponseEntity<ConfirmApplicationResponse> confirmApplication(
+            @CurrentUserId Long userId,
+            @PathVariable("applicationId") Long applicationId
+    ) {
+        ApplicationResponse response = applicationService.confirm(applicationId, userId);
+        ConfirmApplicationResponse confirmApplicationResponse =
+                ConfirmApplicationResponse.from(response);
+
+        if (response.isPending()) {
+            return ResponseEntity.accepted().body(confirmApplicationResponse);
+        }
+        return ResponseEntity.ok(confirmApplicationResponse);
+    }
+
+    @Override
+    @BusinessLogging("신청 취소")
+    @PostMapping("applications/{applicationId}/cancel")
+    public ResponseEntity<CancelApplicationResponse> cancelApplication(
+            @CurrentUserId Long userId,
+            @PathVariable("applicationId") Long applicationId
+    ) {
+        CancelApplicationResponse cancelApplicationResponse = CancelApplicationResponse.from(
+                applicationService.cancel(applicationId, userId));
+
+        return ResponseEntity.ok(cancelApplicationResponse);
+    }
+
+    @Override
     @GetMapping("applications/{applicationId}")
     public ResponseEntity<GetApplicationResponse> readApplication(
             @CurrentUserId Long userId,
@@ -45,18 +77,5 @@ public class ApplicationController implements ApplicationApiSpec {
                 applicationService.getApplication(applicationId, userId));
 
         return ResponseEntity.ok(getApplicationResponse);
-    }
-
-    @Override
-    @BusinessLogging("신청 확정(결제)")
-    @PostMapping("applications/{applicationId}/confirm")
-    public ResponseEntity<ConfirmApplicationResponse> confirmApplication(
-            @CurrentUserId Long userId,
-            @PathVariable("applicationId") Long applicationId
-    ) {
-        ConfirmApplicationResponse confirmApplicationResponse = ConfirmApplicationResponse.from(
-                applicationService.confirm(applicationId, userId));
-
-        return ResponseEntity.ok(confirmApplicationResponse);
     }
 }

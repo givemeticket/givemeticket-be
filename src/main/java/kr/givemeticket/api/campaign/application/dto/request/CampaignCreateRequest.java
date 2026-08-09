@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 public record CampaignCreateRequest(
         String title,
         int totalStock,
-        LocalDateTime openAt
+        LocalDateTime openAt,
+        boolean requiresPayment
 ) {
 }

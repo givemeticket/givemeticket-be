@@ -1,11 +1,12 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { Trend } from 'k6/metrics';
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:18080';
 const STOCK = Number(__ENV.STOCK || 100);
+const API = `${BASE_URL}/api/v1`;
+const OWNER = { 'Content-Type': 'application/json', 'X-User-Id': '1' };
 
-http.setResponseCallback(http.expectedStatuses(200, 201, 409));
+http.setResponseCallback(http.expectedStatuses(200, 201, 202, 409));
 
 export const options = {
   scenarios: {
@@ -35,12 +36,13 @@ export function setup() {
   const openAt = new Date(Date.now() + 4000).toISOString().slice(0, 19);
   const res = http.post(
     `${API}/campaigns`,
-    JSON.stringify({ title: 'k6 capacity', totalStock: STOCK, openAt }),
-    { headers: { 'Content-Type': 'application/json' } }
+    JSON.stringify({ title: 'k6 capacity', totalStock: STOCK, openAt, requiresPayment: false }),
+    { headers: OWNER }
   );
   const campaignId = res.json('id');
+  const shortCode = res.json('shortCode');
   for (let i = 0; i < 20; i++) {
-    if (http.get(`${API}/campaigns/${campaignId}`).json('status') === 'OPEN') break;
+    if (http.get(`${API}/campaigns/${shortCode}`).json('status') === 'OPEN') break;
     sleep(1);
   }
   console.log(`campaign=${campaignId}, stock=${STOCK} — 계단식 부하 시작`);
@@ -52,5 +54,5 @@ export default function (data) {
   const res = http.post(`${API}/campaigns/${data.campaignId}/apply`, null, {
     headers: { 'X-User-Id': String(userId) },
   });
-  check(res, { '5xx 아님': (r) => r.status === 201 || r.status === 409 });
+  check(res, { '5xx 아님': (r) => r.status === 201 || r.status === 202 || r.status === 409 });
 }
