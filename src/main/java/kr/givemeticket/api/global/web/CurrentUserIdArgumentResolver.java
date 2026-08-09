@@ -31,6 +31,10 @@ public class CurrentUserIdArgumentResolver implements HandlerMethodArgumentResol
         HttpServletRequest request = (HttpServletRequest) webRequest.getNativeRequest();
         String header = request.getHeader(USER_ID_HEADER);
         if (header == null || header.isBlank()) {
+            CurrentUserId annotation = parameter.getParameterAnnotation(CurrentUserId.class);
+            if (annotation != null && !annotation.required()) {
+                return null;
+            }
             throw new BusinessException(HttpStatus.UNAUTHORIZED, "MISSING_USER_ID",
                     "X-User-Id 헤더가 필요합니다.");
         }

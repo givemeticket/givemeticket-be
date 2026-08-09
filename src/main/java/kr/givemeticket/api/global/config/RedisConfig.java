@@ -29,4 +29,23 @@ public class RedisConfig {
                 """;
         return new DefaultRedisScript<>(script, Long.class);
     }
+
+    /**
+     * 실패·취소로 자리를 되돌린다. 상한(정원)을 넘으면 아무것도 하지 않는다.
+     * 복원이 중복 호출돼도 재고가 정원보다 커지지 않게 막는 안전장치다.
+     */
+    @Bean
+    public RedisScript<Long> stockRestoreScript() {
+        String script = """
+                local current = tonumber(redis.call('GET', KEYS[1]))
+                if current == nil then
+                    return -1
+                end
+                if current >= tonumber(ARGV[1]) then
+                    return current
+                end
+                return redis.call('INCR', KEYS[1])
+                """;
+        return new DefaultRedisScript<>(script, Long.class);
+    }
 }

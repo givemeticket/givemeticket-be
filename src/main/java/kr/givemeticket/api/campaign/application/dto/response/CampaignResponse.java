@@ -7,24 +7,30 @@ import kr.givemeticket.api.campaign.domain.CampaignType;
 
 public record CampaignResponse(
         Long id,
+        String shortCode,
         String title,
         CampaignType type,
         int totalStock,
         long remainingStock,
         LocalDateTime openAt,
-        CampaignStatus status
+        boolean requiresPayment,
+        CampaignStatus status,
+        boolean soldOut
 ) {
 
     public static CampaignResponse of(Campaign campaign, Long remainingStock) {
         long remaining = (remainingStock == null) ? campaign.getTotalStock() : remainingStock;
         return new CampaignResponse(
                 campaign.getId(),
+                campaign.getShortCode(),
                 campaign.getTitle(),
                 campaign.getType(),
                 campaign.getTotalStock(),
                 remaining,
                 campaign.getOpenAt(),
-                campaign.getStatus()
+                campaign.isRequiresPayment(),
+                campaign.getStatus(),
+                remaining <= 0
         );
     }
 }

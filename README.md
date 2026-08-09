@@ -17,6 +17,37 @@ docker compose --profile obs up -d
 
 포트와 결제 장애 주입 값은 `.env`에서 바꾼다.
 
+> 이미 데이터가 있는 DB에 붙인다면 [docs/sql/2026-08-09-campaign-api.sql](docs/sql/2026-08-09-campaign-api.sql)을
+> 한 번 돌려야 한다. `ddl-auto=update`는 컬럼을 추가만 하고 기존 컬럼의 타입은 바꾸지 않아서,
+> 예전에 네이티브 ENUM으로 만들어진 컬럼에 새 상태값이 들어가지 못한다. 새로 만드는 DB는 그냥 뜬다.
+
+## API
+
+`/api/v1` 프리픽스가 붙는다. 전체 명세는 `/swagger-ui`.
+
+| 메서드 | 경로 | 설명 | 인증 |
+| --- | --- | --- | --- |
+| POST | `/campaigns` | 행사 생성. 응답의 `shortCode`가 공유 링크가 된다 | O |
+| GET | `/campaigns/{shortCode}` | 행사 상세. `viewerRole`로 역할을 구분해서 내려준다 | 선택 |
+| GET | `/campaigns?scope=owned` | 내가 만든 행사 | O |
+| GET | `/campaigns?scope=participated` | 내가 참여중인 행사 (나의 티켓) | O |
+| PATCH | `/campaigns/{id}` | 오픈 지연 / 정원 증원 | O (개설자) |
+| DELETE | `/campaigns/{id}` | 행사 삭제 (soft delete) | O (개설자) |
+| POST | `/campaigns/{id}/apply` | 신청. 재고 차감 + 결제 + 확정을 한 번에 처리 | O |
+| GET | `/applications/{id}` | 신청 조회 | O |
+
+인증은 아직 `X-User-Id` 헤더다. 카카오/네이버 OIDC로 바꿀 때
+[CurrentUserIdArgumentResolver](src/main/java/kr/givemeticket/api/global/web/CurrentUserIdArgumentResolver.java)
+한 곳만 교체하면 되도록 격리해 뒀다.
+
+`viewerRole`은 `GUEST`(비로그인) / `VIEWER`(비참여) / `PARTICIPANT`(참여자) / `OWNER`(개설자)다.
+프론트가 응답 필드의 null 여부로 화면을 추측하지 않도록 역할을 명시적으로 내려준다.
+
+매진(`FULL`)은 저장하지 않고 잔여 재고가 0인지로 조회 시점에 파생시킨다. 그래서 정원을 늘리면
+별도의 재오픈 처리 없이 곧바로 다시 신청할 수 있게 된다.
+
+신청·결제의 상태 전이와 실패 분기는 [docs/payment-flow.md](docs/payment-flow.md)에 정리돼 있다.
+
 ## 로깅
 
 애플리케이션 로그는 전부 JSON 한 줄로 나간다. 프로파일별 출력 대상은 이렇다.
