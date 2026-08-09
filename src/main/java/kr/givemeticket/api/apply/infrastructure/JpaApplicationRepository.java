@@ -9,6 +9,7 @@ import kr.givemeticket.api.apply.domain.ApplicationRepository;
 import kr.givemeticket.api.apply.domain.ApplicationStatus;
 import kr.givemeticket.api.apply.domain.FailureReason;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -36,6 +37,11 @@ public class JpaApplicationRepository implements ApplicationRepository {
     public List<Application> findAllByUserIdAndStatusIn(
             Long userId, Collection<ApplicationStatus> statuses) {
         return springDataJpaApplicationRepository.findAllByUserIdAndStatusInOrderByIdDesc(userId, statuses);
+    }
+
+    @Override
+    public List<Application> findExpiredPending(LocalDateTime now, int limit) {
+        return springDataJpaApplicationRepository.findExpiredPending(now, PageRequest.of(0, limit));
     }
 
     @Override

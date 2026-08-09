@@ -33,9 +33,15 @@ docker compose up -d
 
 ### smoke.js — 기능 점검
 
-무료/유료 캠페인을 각각 만들어 신청까지 돌리고, 역할별 상세 조회(GUEST·PARTICIPANT·OWNER),
+무료/유료 캠페인을 각각 만들어 신청·확정·취소를 돌리고, 역할별 상세 조회(GUEST·PARTICIPANT·OWNER),
 목록 조회(owned·participated), 정원 증원/감원, 삭제 거부까지 한 번에 확인한다.
 배포 후 "API가 살아 있는지"를 보는 용도다.
+
+홀드 만료는 기본 2분이라 여기서 검증하지 않는다. 확인하려면 짧게 띄운다.
+
+```bash
+APPLICATION_HOLD_DURATION=5s docker compose up -d backend
+```
 
 ### rush.js — 오픈 스파이크
 
@@ -58,8 +64,7 @@ k6 run -e STOCK=100 -e RATE=600 -e DURATION=30s load-test/rush.js
 
 ### soak.js — 지속 부하 + 장애 실험
 
-조회 → 신청을 계속 돌린다. 신청 API가 재고 차감·결제·확정을 한 번에 처리하므로
-결제 경로까지 계속 두드린다. 실행 중에 장애를 주입하면 연쇄 전파를 볼 수 있다.
+조회 → 신청 → 확정을 계속 돌린다. 실행 중에 장애를 주입하면 연쇄 전파를 볼 수 있다.
 
 ```bash
 # 터미널 A: 부하
@@ -78,9 +83,9 @@ docker compose stop mysql                 # 신청 기록 실패 → 커넥션 �
 
 | 변수 | 효과 | 기대 응답 |
 | --- | --- | --- |
-| `PAYMENT_DECLINE_RATE=1.0` | 카드 거절 | `409 PAYMENT_DECLINED`, 재고 복원 |
-| `PAYMENT_ERROR_RATE=1.0` | 게이트웨이 5xx | `502 PAYMENT_GATEWAY_ERROR`, 재고 복원 |
-| `PAYMENT_TIMEOUT_RATE=1.0` | 응답 지연(read timeout) | `202` + `UNKNOWN`, **재고 유지** |
+| `PAYMENT_DECLINE_RATE=1.0` | 카드 거절 | confirm이 `409 PAYMENT_DECLINED`, 재고 복원 |
+| `PAYMENT_ERROR_RATE=1.0` | 게이트웨이 5xx | confirm이 `502 PAYMENT_GATEWAY_ERROR`, 재고 복원 |
+| `PAYMENT_TIMEOUT_RATE=1.0` | 응답 지연(read timeout) | confirm이 `202` + `UNKNOWN`, **재고 유지** |
 | `PAYMENT_CANCEL_ERROR_RATE=1.0` | 환불 실패 | 취소는 `200` + `PENDING_RETRY`, 재고는 반납 |
 | `PAYMENT_DELAY_MS` / `PAYMENT_JITTER_MS` | 지연 주입 | 지연만 증가 |
 

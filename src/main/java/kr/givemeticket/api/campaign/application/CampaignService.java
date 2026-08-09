@@ -56,9 +56,6 @@ public class CampaignService {
         return CampaignResponse.of(saved, (long) saved.getTotalStock());
     }
 
-    /**
-     * 공유 링크로 들어오는 상세 화면. {@code userId}가 null이면 비로그인 조회다.
-     */
     @Transactional(readOnly = true)
     public CampaignDetailResponse getCampaignDetail(String shortCode, Long userId) {
         Campaign campaign = campaignRepository.findByShortCode(shortCode)
@@ -83,7 +80,6 @@ public class CampaignService {
             return CampaignDetailResponse.of(campaign, remaining, ViewerRole.OWNER, mine, confirmedCount);
         }
 
-        // 종결된 신청(FAILED 등)도 함께 내려준다. "결제 실패" 같은 직전 결과를 화면에 띄워야 한다.
         ViewerRole role = (mine != null && mine.isActive()) ? ViewerRole.PARTICIPANT : ViewerRole.VIEWER;
         return CampaignDetailResponse.of(campaign, remaining, role, mine, null);
     }
@@ -116,9 +112,6 @@ public class CampaignService {
                 .toList();
     }
 
-    /**
-     * 오픈 지연과 정원 증원만 허용한다. 앞당기기·감원은 이미 링크를 받은 사람의 기대를 깨뜨린다.
-     */
     @Transactional
     public CampaignResponse updateCampaign(Long campaignId, Long userId, CampaignUpdateRequest request) {
         if (request.isEmpty()) {
@@ -140,11 +133,8 @@ public class CampaignService {
             int delta = campaign.changeTotalStock(request.totalStock());
             stockRepository.increaseBy(campaignId, delta);
 
-            // 이미 열려 있으면 신청 핫패스가 보는 메타도 같이 갱신한다.
-            // 매진 상태였다면 잔여 재고가 0을 넘는 순간 자동으로 다시 신청 가능해진다.
-            // (FULL을 저장하지 않고 파생시키기 때문에 별도의 '재오픈' 처리가 필요 없다)
             campaignStateRepository.find(campaignId).ifPresent(state ->
-                    campaignStateRepository.open(campaignId,
+                    campaignStateRepository.save(campaignId,
                             new CampaignState(state.requiresPayment(), campaign.getTotalStock())));
 
             log.info("campaign stock increased: campaignId={}, delta={}, totalStock={}",
@@ -158,8 +148,6 @@ public class CampaignService {
     public void deleteCampaign(Long campaignId, Long userId) {
         Campaign campaign = findManageableCampaign(campaignId, userId);
 
-        // PENDING·UNKNOWN까지 막는다. 결제가 진행 중이거나 결과를 모르는 건이 남은 채로
-        // 캠페인을 지우면 그 돈을 어떻게 처리할지 판단할 근거가 사라진다.
         if (applicationRepository.existsByCampaignIdAndStatusIn(campaignId, ApplicationStatus.active())) {
             throw CampaignApplicationException.deleteNotAllowed();
         }
@@ -183,9 +171,6 @@ public class CampaignService {
         return campaign;
     }
 
-    /**
-     * 난수라 충돌은 사실상 없지만, 충돌하면 유니크 제약 위반으로 요청 전체가 죽으므로 미리 확인한다.
-     */
     private String generateShortCode() {
         for (int attempt = 0; attempt < SHORT_CODE_MAX_ATTEMPTS; attempt++) {
             String candidate = shortCodeGenerator.generate();

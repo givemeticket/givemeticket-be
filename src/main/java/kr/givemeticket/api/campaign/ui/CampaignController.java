@@ -44,9 +44,6 @@ public class CampaignController implements CampaignApiSpec {
                 .body(createCampaignResponse);
     }
 
-    /**
-     * 공유 링크가 가리키는 화면. 비로그인도 볼 수 있어야 해서 인증을 강제하지 않는다.
-     */
     @Override
     @GetMapping("campaigns/{shortCode}")
     public ResponseEntity<GetCampaignResponse> readCampaign(

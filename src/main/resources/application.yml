@@ -32,10 +32,12 @@ payment:
   base-url: ${PAYMENT_BASE_URL:http://localhost:8081}
   connect-timeout-ms: ${PAYMENT_CONNECT_TIMEOUT_MS:2000}
   read-timeout-ms: ${PAYMENT_READ_TIMEOUT_MS:3000}
-  # PENDING 신청이 재고를 붙들고 있을 수 있는 시간.
-  # 지금은 서버가 신청 한 번에 결제까지 끝내므로 read timeout + 크래시 여유면 충분하다.
-  # 사용자가 결제창에 머무는 실제 PG로 바꾸면 5~10분으로 늘려야 한다.
-  hold-duration: ${PAYMENT_HOLD_DURATION:60s}
+
+application:
+  # apply 후 confirm까지 자리를 잡아둘 수 있는 시간. 사용자가 결제창에 머무는 시간이다.
+  hold-duration: ${APPLICATION_HOLD_DURATION:2m}
+  expire-scheduler-delay-ms: ${APPLICATION_EXPIRE_SCHEDULER_DELAY_MS:10000}
+  expire-batch-size: ${APPLICATION_EXPIRE_BATCH_SIZE:200}
 
 springdoc:
   api-docs:

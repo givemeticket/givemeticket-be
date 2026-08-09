@@ -19,7 +19,7 @@ public class RedisCampaignStateRepository implements CampaignStateRepository {
     private final StringRedisTemplate stringRedisTemplate;
 
     @Override
-    public void open(Long campaignId, CampaignState state) {
+    public void save(Long campaignId, CampaignState state) {
         stringRedisTemplate.opsForHash().putAll(key(campaignId), Map.of(
                 FIELD_REQUIRES_PAYMENT, String.valueOf(state.requiresPayment()),
                 FIELD_TOTAL_STOCK, String.valueOf(state.totalStock())

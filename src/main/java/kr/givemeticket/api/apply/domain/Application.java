@@ -4,6 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
@@ -20,9 +21,15 @@ import org.hibernate.type.SqlTypes;
  */
 @Getter
 @Entity
-@Table(name = "application", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_application_campaign_user", columnNames = {"campaign_id", "user_id"})
-})
+@Table(name = "application",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_application_campaign_user",
+                        columnNames = {"campaign_id", "user_id"})
+        },
+        indexes = {
+                // 만료 sweeper가 10초마다 훑는다. 없으면 신청이 쌓일수록 풀스캔이 된다.
+                @Index(name = "idx_application_status_expires", columnList = "status, expires_at")
+        })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Application extends BaseEntity {
 
@@ -32,8 +39,6 @@ public class Application extends BaseEntity {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    // 네이티브 ENUM 으로 잡히면 상수를 추가할 때마다 컬럼 타입을 바꿔야 한다.
-    // ddl-auto=update 는 기존 컬럼 타입을 건드리지 않아서 그대로 런타임 오류가 된다.
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "status", nullable = false, length = 32)
@@ -70,7 +75,7 @@ public class Application extends BaseEntity {
     }
 
     /**
-     * 결제가 필요한 캠페인. 재고를 잡은 채 결제 결과를 기다린다.
+     * 결제가 필요한 캠페인.
      */
     public static Application pending(Long campaignId, Long userId, String paymentKey, LocalDateTime expiresAt) {
         Application application = new Application(campaignId, userId, ApplicationStatus.PENDING);
@@ -80,15 +85,12 @@ public class Application extends BaseEntity {
     }
 
     /**
-     * 결제가 필요 없는 캠페인. 중간 상태 없이 바로 확정된다.
+     * 결제가 필요 없는 캠페인.
      */
     public static Application confirmed(Long campaignId, Long userId) {
         return new Application(campaignId, userId, ApplicationStatus.CONFIRMED);
     }
 
-    /**
-     * 종결된 신청을 다시 PENDING으로 되돌린다. 이전 시도의 결제 흔적은 모두 지운다.
-     */
     public void reserve(String paymentKey, LocalDateTime expiresAt) {
         this.status = ApplicationStatus.PENDING;
         this.paymentKey = paymentKey;

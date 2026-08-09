@@ -2,10 +2,9 @@
 
 재고는 확보했는데 결제가 실패하거나, 결제 결과를 끝내 모르는 경우를 어떻게 다룰지 정한다.
 
-> **구현 현황** — 2~5절(상태 모델·홀드·정상 플로우·실패 분기), 7절(멱등성), 10~13절은 구현됐다.
-> **6절(미결 정산 배치), 8절(재고 정합성 보정), 9절(만료 sweeper), 14절(메트릭)은 아직이다.**
-> 그래서 지금은 `UNKNOWN`으로 떨어진 신청이 스스로 해소되지 않고 재고를 잡은 채 남는다.
-> 취소도 막힌다(409). 다음 작업에서 반드시 이어서 해야 한다.
+> **구현 현황** — 2~5절, 7절, 9~13절은 구현됐다.
+> **6절(미결 정산 배치), 8절(재고 정합성 보정), 14절(메트릭)은 아직이다.**
+> `UNKNOWN`으로 떨어진 신청은 아직 스스로 해소되지 않고 재고를 잡은 채 남는다.
 >
 > 1절은 착수 전 진단 기록이라 그대로 둔다.
 
@@ -68,17 +67,15 @@ public enum FailureReason {
 Redis TTL이나 키스페이스 알림을 쓰지 않는 이유는, 만료 시 재고 복원과 상태 전이를 **원자적으로**
 묶어야 하는데 그 원자성의 기준점이 DB 행이기 때문이다.
 
-**홀드 시간은 결제 방식에 따라 다르다. 설정값(`payment.hold-duration`)으로 뺀다.**
+**홀드 시간은 설정값(`application.hold-duration`)이고 기본 2분이다.**
 
-| 결제 방식 | PENDING 수명 | 홀드 시간 |
-|---|---|---|
-| 현재(mock, 서버가 apply 한 번에 결제까지 처리) | 서버 내부 결제 호출 구간 | 60초 (read timeout 3초 + 크래시 복구 여유) |
-| 향후 실 PG(카드 입력·리다이렉트) | 사용자가 결제창에 머무는 구간 | 5~10분 |
-
-두 경우 모두 상태머신은 동일하다. 바뀌는 건 TTL 값뿐이다. 지금 60초로 두더라도
-sweeper는 반드시 필요하다 — 결제 호출 도중 파드가 죽으면 `PENDING`이 그대로 남기 때문이다.
+`apply`가 자리를 잡고 `confirm`이 결제하는 구조라, `PENDING` 수명은 사용자가 결제 화면에
+머무는 시간이다. 실 PG로 바꿔도 이 값만 조정하면 되고 상태머신은 그대로다.
 
 ## 4. 정상 플로우
+
+`apply`는 자리를 잡는 것까지만 한다. 결제는 `confirm`이 맡는다.
+apply 하나에 재고·결제·확정을 다 넣으면 실패 분기가 전부 그 한 곳으로 몰린다.
 
 ### 4-1. `requiresPayment = false`
 
@@ -90,29 +87,33 @@ POST /api/v1/campaigns/{id}/apply
   4. 201 { status: CONFIRMED }
 ```
 
-`PENDING`을 거치지 않는다. 중간 상태가 없으니 sweeper 대상도 아니다.
+`PENDING`을 거치지 않으니 sweeper 대상도, confirm 호출도 필요 없다.
 
 ### 4-2. `requiresPayment = true`
 
 ```
 POST /api/v1/campaigns/{id}/apply
   1. 오픈 여부 확인
-  2. 기존 신청 조회 (campaign_id, user_id)
-       ├─ CONFIRMED 있음        → 409 ALREADY_APPLIED
-       ├─ PENDING 있고 미만료    → 그 신청을 재사용 (재차감 없음)
-       └─ 없음/종결됨           → 3으로
-  3. Redis DECR                      → 실패면 409 SOLD_OUT
-  4. [tx1] Application(PENDING, expiresAt=now+hold, paymentKey=UUID) 저장
-                                     → 실패면 Redis INCR 보상
+  2. Redis DECR                      → 실패면 409 SOLD_OUT
+  3. [tx] 기존 신청 조회
+       ├─ 살아있는 신청 있음  → 409 ALREADY_APPLIED (재고 보상)
+       └─ 없음/종결됨        → Application(PENDING, expiresAt=now+hold,
+                                paymentKey=UUID) 저장
+  4. 201 { status: PENDING, expiresAt }
+
+POST /api/v1/applications/{id}/confirm
+  1. 소유자·PENDING 확인              → 아니면 409
+  2. 만료됐으면 그 자리에서 회수       → 409 APPLICATION_EXPIRED
   ── 트랜잭션 밖 ──
-  5. paymentClient.charge(paymentKey, ...)
+  3. paymentClient.charge(paymentKey, ...)
   ── 결과에 따라 ──
-  6. [tx2] 상태 전이 (+ 필요 시 재고 복원)
-  7. 200/409 응답
+  4. [tx] 상태 전이 (+ 필요 시 재고 복원)
+  5. 200 / 202 / 409 / 502
 ```
 
-3번이 2번보다 뒤에 있는 게 중요하다. 새로고침·더블클릭으로 apply가 두 번 들어와도
-살아있는 `PENDING`이 있으면 재고를 또 깎지 않는다.
+중복 확인이 재고 차감보다 **뒤에** 있다. 오픈 직후에는 요청 대부분이 매진으로 떨어지는데,
+중복 확인이 앞에 있으면 그 요청들이 전부 DB 커넥션을 한 번씩 잡고 나간다.
+이 순서면 매진 경로는 Redis 두 번으로 끝난다. 중복이면 방금 잡은 자리를 되돌린다.
 
 ## 5. 실패 분기 매트릭스
 
@@ -122,10 +123,10 @@ POST /api/v1/campaigns/{id}/apply
 | 카드 거절 (`approved=false`) | 미승인 확정 | `FAILED(PAYMENT_DECLINED)` | 복원 | `409 PAYMENT_DECLINED` |
 | PG 5xx | 미승인 확정 | `FAILED(PAYMENT_ERROR)` | 복원 | `502 PAYMENT_ERROR` |
 | 연결 실패 (요청 전송 실패) | 미승인 확정 | `FAILED(PAYMENT_ERROR)` | 복원 | `502 PAYMENT_ERROR` |
-| **read timeout** | **불명** | `UNKNOWN` | **유지** | `202 PAYMENT_PENDING` |
-| 응답 파싱 실패 / null | **불명** | `UNKNOWN` | **유지** | `202 PAYMENT_PENDING` |
-| 결제 중 서버 크래시 | 불명 | `PENDING` 잔류 → sweeper가 `UNKNOWN`으로 | 유지 | (재조회 시 확인) |
-| 홀드 만료 (사용자 이탈) | 호출 안 함 | `FAILED(EXPIRED)` | 복원 | `409 APPLICATION_EXPIRED` |
+| **read timeout** | **불명** | `UNKNOWN` | **유지** | `202` + `UNKNOWN` |
+| 응답 파싱 실패 / null | **불명** | `UNKNOWN` | **유지** | `202` + `UNKNOWN` |
+| confirm 중 서버 크래시 | 불명 | `PENDING` 잔류 → 만료되면 sweeper가 회수 | 만료 시 복원 | (재조회 시 확인) |
+| 홀드 만료 (confirm 안 함) | 호출 안 함 | `FAILED(EXPIRED)` | 복원 | `409 APPLICATION_EXPIRED` |
 
 "연결 실패"와 "read timeout"을 반드시 구분해야 한다.
 전자는 요청이 PG에 닿지 않은 게 확실하므로 즉시 실패 처리해도 안전하다.
@@ -138,7 +139,7 @@ catch (ResourceAccessException e) {
 }
 ```
 
-`202 PAYMENT_PENDING`을 받은 클라이언트는 "결제 확인 중입니다" 모달을 띄우고
+`202`를 받은 클라이언트는 "결제 확인 중입니다" 모달을 띄우고
 `GET /api/v1/applications/{id}`를 2초 간격으로 폴링한다. 최대 30초까지 폴링하고,
 그래도 `UNKNOWN`이면 "확인되면 알려드립니다"로 마무리한다.
 
@@ -239,8 +240,8 @@ Redis 재시작·유실 시 재고를 되살리는 경로이기도 하다.
 ## 9. 만료 sweeper
 
 ```
-@Scheduled(fixedDelay = 1s)
-  PENDING 이고 expires_at < now 인 신청 조회
+@Scheduled(fixedDelay = 10s)
+  PENDING 이고 expires_at < now 인 신청 조회 (idx_application_status_expires)
     ├─ 결제 시도 흔적 없음(paymentRequestedAt == null) → FAILED(EXPIRED) + 재고 복원
     └─ 결제 시도했으나 결과 미기록                      → UNKNOWN (정산 배치로 넘김)
 ```

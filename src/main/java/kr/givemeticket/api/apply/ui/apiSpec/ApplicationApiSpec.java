@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import kr.givemeticket.api.apply.ui.dto.response.ApplyResponse;
 import kr.givemeticket.api.apply.ui.dto.response.CancelApplicationResponse;
+import kr.givemeticket.api.apply.ui.dto.response.ConfirmApplicationResponse;
 import kr.givemeticket.api.apply.ui.dto.response.GetApplicationResponse;
 import kr.givemeticket.api.global.web.CurrentUserId;
 import org.springframework.http.ResponseEntity;
@@ -17,14 +18,12 @@ public interface ApplicationApiSpec {
 
     @Operation(summary = "선착순 신청",
             description = """
-                    재고 차감·결제·확정을 한 번의 호출로 처리합니다.
+                    재고를 잡습니다. 결제는 하지 않습니다.
 
-                    - 결제가 없는 캠페인: 재고를 잡는 즉시 CONFIRMED (201)
-                    - 결제가 있는 캠페인: 재고를 잡고 결제까지 시도해 CONFIRMED (201)
-                    - 결제 결과를 받지 못한 경우: UNKNOWN (202). 재고를 잡아둔 채 정산을 기다리므로
-                      신청 조회 API를 폴링해 최종 상태를 확인합니다
-                    - 매진 409 SOLD_OUT / 중복 409 ALREADY_APPLIED / 거절 409 PAYMENT_DECLINED
-                      / 게이트웨이 오류 502 PAYMENT_GATEWAY_ERROR
+                    - 결제가 없는 캠페인: 바로 CONFIRMED
+                    - 결제가 있는 캠페인: PENDING. 응답의 expiresAt까지 확정 API를 호출해야 하며,
+                      넘기면 자리가 자동으로 회수됩니다
+                    - 매진 409 SOLD_OUT / 중복 409 ALREADY_APPLIED
                     """)
     @Parameter(name = "X-User-Id", description = "유저 식별자", in = ParameterIn.HEADER, required = true,
             schema = @Schema(type = "integer", format = "int64", example = "1"))
@@ -32,6 +31,25 @@ public interface ApplicationApiSpec {
             @Parameter(hidden = true) @CurrentUserId Long userId,
             @Parameter(description = "캠페인 ID", example = "1")
             @PathVariable("campaignId") Long campaignId
+    );
+
+    @Operation(summary = "신청 확정(결제)",
+            description = """
+                    PENDING 신청의 결제를 요청하고 결과에 따라 상태를 확정합니다.
+
+                    - 승인: CONFIRMED (200)
+                    - 결제 결과를 받지 못함: UNKNOWN (202). 재고를 잡아둔 채 정산을 기다리므로
+                      신청 조회 API를 폴링해 최종 상태를 확인합니다
+                    - 거절 409 PAYMENT_DECLINED / 게이트웨이 오류 502 PAYMENT_GATEWAY_ERROR
+                      — 둘 다 재고가 반납됩니다
+                    - 홀드 만료 409 APPLICATION_EXPIRED / 그 밖의 상태 409 APPLICATION_NOT_PENDING
+                    """)
+    @Parameter(name = "X-User-Id", description = "유저 식별자", in = ParameterIn.HEADER, required = true,
+            schema = @Schema(type = "integer", format = "int64", example = "1"))
+    ResponseEntity<ConfirmApplicationResponse> confirmApplication(
+            @Parameter(hidden = true) @CurrentUserId Long userId,
+            @Parameter(description = "신청 ID", example = "1")
+            @PathVariable("applicationId") Long applicationId
     );
 
     @Operation(summary = "신청 취소",

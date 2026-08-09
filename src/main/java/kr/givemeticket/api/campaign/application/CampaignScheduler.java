@@ -29,8 +29,7 @@ public class CampaignScheduler {
 
         for (Campaign campaign : targets) {
             campaign.open();
-            // 신청 핫패스가 DB 없이 판단할 수 있도록 결제 필요 여부와 정원을 함께 올린다.
-            campaignStateRepository.open(campaign.getId(),
+            campaignStateRepository.save(campaign.getId(),
                     new CampaignState(campaign.isRequiresPayment(), campaign.getTotalStock()));
             log.info("campaign opened: id={}, title={}", campaign.getId(), campaign.getTitle());
         }

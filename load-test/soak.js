@@ -60,15 +60,25 @@ export default function (data) {
     check(res, { '조회 200': (r) => r.status === 200 });
   });
 
+  let applicationId;
   group('apply', () => {
-    // 신청 한 번에 재고 차감 + 결제 + 확정까지 끝난다.
     const res = http.post(`${API}/campaigns/${data.campaignId}/apply`, null, {
       headers: { 'X-User-Id': String(userId) },
     });
-    check(res, {
-      '신청 201/202/409': (r) => r.status === 201 || r.status === 202 || r.status === 409,
-    });
+    check(res, { '신청 201/409': (r) => r.status === 201 || r.status === 409 });
+    if (res.status === 201 && res.json('status') === 'PENDING') {
+      applicationId = res.json('id');
+    }
   });
+
+  if (applicationId) {
+    group('confirm', () => {
+      const res = http.post(`${API}/applications/${applicationId}/confirm`, null, {
+        headers: { 'X-User-Id': String(userId) },
+      });
+      check(res, { '확정 200/202': (r) => r.status === 200 || r.status === 202 });
+    });
+  }
 
   sleep(1);
 }

@@ -32,8 +32,6 @@ public class Campaign extends BaseEntity {
     @Column(name = "title", nullable = false)
     private String title;
 
-    // 네이티브 ENUM 으로 잡히면 상수를 추가할 때마다 컬럼 타입을 바꿔야 한다.
-    // ddl-auto=update 는 기존 컬럼 타입을 건드리지 않아서 그대로 런타임 오류가 된다.
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "type", nullable = false, length = 32)
@@ -80,10 +78,6 @@ public class Campaign extends BaseEntity {
         this.status = CampaignStatus.CLOSED;
     }
 
-    /**
-     * 물리 삭제하지 않는다. 이미 발급된 공유 링크로 들어온 사람에게 "삭제된 행사"라고 알려줘야 하고,
-     * 취소된 신청 이력도 캠페인을 참조한 채로 남기 때문이다.
-     */
     public void delete() {
         this.status = CampaignStatus.DELETED;
     }
@@ -92,9 +86,6 @@ public class Campaign extends BaseEntity {
         this.openAt = openAt;
     }
 
-    /**
-     * @return 늘어난 재고 수. Redis 카운터에 그대로 더하면 된다.
-     */
     public int changeTotalStock(int newTotalStock) {
         int delta = newTotalStock - this.totalStock;
         this.totalStock = newTotalStock;

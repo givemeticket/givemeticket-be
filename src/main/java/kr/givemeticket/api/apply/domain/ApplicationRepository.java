@@ -1,5 +1,6 @@
 package kr.givemeticket.api.apply.domain;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -13,6 +14,11 @@ public interface ApplicationRepository {
     Optional<Application> findByCampaignIdAndUserId(Long campaignId, Long userId);
 
     List<Application> findAllByUserIdAndStatusIn(Long userId, Collection<ApplicationStatus> statuses);
+
+    /**
+     * 홀드 시간을 넘긴 결제 대기 신청. 만료 sweeper가 회수 대상으로 쓴다.
+     */
+    List<Application> findExpiredPending(LocalDateTime now, int limit);
 
     long countByCampaignIdAndStatusIn(Long campaignId, Collection<ApplicationStatus> statuses);
 

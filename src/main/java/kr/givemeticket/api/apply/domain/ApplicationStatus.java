@@ -4,7 +4,6 @@ import java.util.Set;
 
 public enum ApplicationStatus {
 
-    /** 재고를 확보하고 결제 결과를 기다리는 중. {@code expiresAt}이 지나면 회수된다. */
     PENDING,
 
     CONFIRMED,

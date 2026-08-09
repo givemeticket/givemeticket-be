@@ -7,7 +7,7 @@ import java.util.Optional;
  */
 public interface CampaignStateRepository {
 
-    void open(Long campaignId, CampaignState state);
+    void save(Long campaignId, CampaignState state);
 
     Optional<CampaignState> find(Long campaignId);
 

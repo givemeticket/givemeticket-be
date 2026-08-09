@@ -7,6 +7,7 @@ import java.util.Optional;
 import kr.givemeticket.api.apply.domain.Application;
 import kr.givemeticket.api.apply.domain.ApplicationStatus;
 import kr.givemeticket.api.apply.domain.FailureReason;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -18,6 +19,14 @@ public interface SpringDataJpaApplicationRepository extends JpaRepository<Applic
 
     List<Application> findAllByUserIdAndStatusInOrderByIdDesc(
             Long userId, Collection<ApplicationStatus> statuses);
+
+    @Query("""
+            SELECT a FROM Application a
+             WHERE a.status = kr.givemeticket.api.apply.domain.ApplicationStatus.PENDING
+               AND a.expiresAt < :now
+             ORDER BY a.expiresAt ASC
+            """)
+    List<Application> findExpiredPending(@Param("now") LocalDateTime now, Pageable pageable);
 
     long countByCampaignIdAndStatusIn(Long campaignId, Collection<ApplicationStatus> statuses);
 

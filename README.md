@@ -33,9 +33,16 @@ docker compose --profile obs up -d
 | GET | `/campaigns?scope=participated` | 내가 참여중인 행사 (나의 티켓) | O |
 | PATCH | `/campaigns/{id}` | 오픈 지연 / 정원 증원 | O (개설자) |
 | DELETE | `/campaigns/{id}` | 행사 삭제 (soft delete) | O (개설자) |
-| POST | `/campaigns/{id}/apply` | 신청. 재고 차감 + 결제 + 확정을 한 번에 처리 | O |
+| POST | `/campaigns/{id}/apply` | 신청. 자리만 잡는다 | O |
+| POST | `/applications/{id}/confirm` | 결제 요청 후 확정 | O |
 | POST | `/applications/{id}/cancel` | 신청 취소. 재고 즉시 반납 | O |
 | GET | `/applications/{id}` | 신청 조회 | O |
+
+신청은 두 단계다. `apply`는 재고만 잡고, 결제는 `confirm`이 한다.
+
+- 결제가 없는 캠페인은 `apply` 한 번으로 `CONFIRMED`가 된다
+- 결제가 있는 캠페인은 `apply`가 `PENDING` + `expiresAt`을 내려주고, 클라이언트가 `confirm`을 호출한다
+- `expiresAt`(기본 2분)까지 `confirm`하지 않으면 자리가 자동으로 회수된다
 
 인증은 아직 `X-User-Id` 헤더다. 카카오/네이버 OIDC로 바꿀 때
 [CurrentUserIdArgumentResolver](src/main/java/kr/givemeticket/api/global/web/CurrentUserIdArgumentResolver.java)

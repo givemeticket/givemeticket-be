@@ -80,6 +80,8 @@ services:
       REDIS_PORT: 6379
       PAYMENT_BASE_URL: http://payment-mock:8081
       DB_POOL_SIZE: ${DB_POOL_SIZE}
+      APPLICATION_HOLD_DURATION: ${APPLICATION_HOLD_DURATION:-2m}
+      APPLICATION_EXPIRE_SCHEDULER_DELAY_MS: ${APPLICATION_EXPIRE_SCHEDULER_DELAY_MS:-10000}
     volumes:
       - backend-logs:/logs
     ports:
