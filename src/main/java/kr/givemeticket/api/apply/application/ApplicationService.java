@@ -26,12 +26,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * 신청은 자리를 잡는 것까지만 한다. 결제는 {@link #confirm}이 맡는다.
- *
- * <p>{@code @Transactional}이 없다. 결제 HTTP 호출이 트랜잭션 안에 있으면 결제가 느려질 때마다
- * DB 커넥션이 그만큼 묶인다. 상태를 바꾸는 구간만 {@link ApplicationPersister}로 쪼갰다.
- */
 @Slf4j
 @Service
 public class ApplicationService {
@@ -110,9 +104,6 @@ public class ApplicationService {
         };
     }
 
-    /**
-     * 결제가 없던 신청은 외부 호출 없이 끝난다. 결제가 있었으면 자리를 먼저 돌려주고 환불을 요청한다.
-     */
     public CancelResponse cancel(Long applicationId, Long userId) {
         Application application = findOwnedApplication(applicationId, userId);
 
@@ -160,9 +151,6 @@ public class ApplicationService {
         return currentStateOf(application.getId());
     }
 
-    /**
-     * 재고를 되돌리지 않는다. 승인됐을 가능성이 남은 자리를 남에게 팔면 돈만 빠져나간다.
-     */
     private ApplicationResponse settleUnknown(Application application) {
         applicationPersister.markUnknown(application.getId());
         log.error("payment outcome unknown, stock held for reconciliation: applicationId={}, paymentKey={}",
@@ -174,9 +162,6 @@ public class ApplicationService {
         failAndRestore(application, upperBound, FailureReason.EXPIRED);
     }
 
-    /**
-     * 실제로 전이시킨 쪽만 재고를 되돌린다. 만료 sweeper와 겹쳐도 복원은 한 번만 일어난다.
-     */
     private void failAndRestore(Application application, int upperBound, FailureReason reason) {
         if (applicationPersister.fail(application.getId(), reason) == 0) {
             log.warn("stock not restored, application already settled: applicationId={}, reason={}",

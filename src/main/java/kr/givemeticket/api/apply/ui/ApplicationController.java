@@ -48,7 +48,6 @@ public class ApplicationController implements ApplicationApiSpec {
         ConfirmApplicationResponse confirmApplicationResponse =
                 ConfirmApplicationResponse.from(response);
 
-        // 결제 결과를 모르는 건은 아직 확정이 아니다. 클라이언트가 폴링하도록 202로 내려보낸다.
         if (response.isPending()) {
             return ResponseEntity.accepted().body(confirmApplicationResponse);
         }

@@ -15,10 +15,6 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-/**
- * 한 캠페인에 한 사용자당 한 행만 존재한다. 실패·취소 후 재신청하면 새 행을 만들지 않고
- * 이 행을 다시 PENDING으로 되돌린다({@link #reserve}). 이력이 필요해지면 별도 테이블로 뺀다.
- */
 @Getter
 @Entity
 @Table(name = "application",
@@ -49,14 +45,12 @@ public class Application extends BaseEntity {
     @Column(name = "failure_reason", length = 32)
     private FailureReason failureReason;
 
-    /** 결제 멱등키. 재시도와 정산 조회가 모두 이 키를 쓴다. */
     @Column(name = "payment_key", length = 64)
     private String paymentKey;
 
     @Column(name = "transaction_id")
     private String transactionId;
 
-    /** PENDING 홀드 만료 시각. 결제가 필요 없는 신청은 null이다. */
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
 
@@ -101,9 +95,6 @@ public class Application extends BaseEntity {
         this.reconcileAttempts = 0;
     }
 
-    /**
-     * 결제 없이 즉시 확정. 재신청 경로에서 쓴다.
-     */
     public void reserveConfirmed() {
         this.status = ApplicationStatus.CONFIRMED;
         this.paymentKey = null;
@@ -132,14 +123,5 @@ public class Application extends BaseEntity {
 
     public boolean isExpired(LocalDateTime now) {
         return this.expiresAt != null && now.isAfter(this.expiresAt);
-    }
-
-    /**
-     * 아직 결과가 정해지지 않아 사용자가 기다려야 하는 상태.
-     */
-    public boolean isSettled() {
-        return this.status != ApplicationStatus.PENDING
-                && this.status != ApplicationStatus.UNKNOWN
-                && this.status != ApplicationStatus.MANUAL_REVIEW;
     }
 }
