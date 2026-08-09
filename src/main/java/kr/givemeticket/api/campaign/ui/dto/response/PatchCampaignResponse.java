@@ -11,7 +11,8 @@ public record PatchCampaignResponse(
         long remainingStock,
         LocalDateTime openAt,
         CampaignStatus status,
-        boolean soldOut
+        boolean soldOut,
+        CampaignDetailResponsePart detail
 ) {
 
     public static PatchCampaignResponse from(CampaignResponse response) {
@@ -22,7 +23,8 @@ public record PatchCampaignResponse(
                 response.remainingStock(),
                 response.openAt(),
                 response.status(),
-                response.soldOut()
+                response.soldOut(),
+                CampaignDetailResponsePart.from(response.detail())
         );
     }
 }

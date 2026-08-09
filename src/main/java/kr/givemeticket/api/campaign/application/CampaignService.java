@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 import kr.givemeticket.api.apply.domain.Application;
 import kr.givemeticket.api.apply.domain.ApplicationRepository;
 import kr.givemeticket.api.apply.domain.ApplicationStatus;
+import kr.givemeticket.api.campaign.application.dto.CampaignDetailCommand;
 import kr.givemeticket.api.campaign.application.dto.request.CampaignCreateRequest;
 import kr.givemeticket.api.campaign.application.dto.request.CampaignUpdateRequest;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignDetailResponse;
@@ -48,7 +49,8 @@ public class CampaignService {
                 CampaignType.TICKET,
                 request.totalStock(),
                 request.openAt(),
-                request.requiresPayment());
+                request.requiresPayment(),
+                CampaignDetailCommand.toCampaignDetailOrNull(request.detail()));
         Campaign saved = campaignRepository.save(campaign);
 
         stockRepository.initialize(saved.getId(), saved.getTotalStock());
@@ -139,6 +141,11 @@ public class CampaignService {
 
             log.info("campaign stock increased: campaignId={}, delta={}, totalStock={}",
                     campaignId, delta, campaign.getTotalStock());
+        }
+
+        if (request.detail() != null) {
+            // 안내 정보는 신청 로직과 무관하므로 오픈 이후에도 자유롭게 고칠 수 있다.
+            campaign.changeDetail(request.detail().toCampaignDetail());
         }
 
         return CampaignResponse.of(campaign, stockRepository.getRemaining(campaignId));

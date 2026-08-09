@@ -12,7 +12,8 @@ public record CreateCampaignResponse(
         String title,
         int totalStock,
         LocalDateTime openAt,
-        boolean requiresPayment
+        boolean requiresPayment,
+        CampaignDetailResponsePart detail
 ) {
 
     public static CreateCampaignResponse from(CampaignResponse response) {
@@ -22,7 +23,8 @@ public record CreateCampaignResponse(
                 response.title(),
                 response.totalStock(),
                 response.openAt(),
-                response.requiresPayment()
+                response.requiresPayment(),
+                CampaignDetailResponsePart.from(response.detail())
         );
     }
 }

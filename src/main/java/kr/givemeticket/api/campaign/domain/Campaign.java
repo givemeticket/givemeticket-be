@@ -1,6 +1,7 @@
 package kr.givemeticket.api.campaign.domain;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -51,6 +52,10 @@ public class Campaign extends BaseEntity {
     @Column(name = "status", nullable = false, length = 32)
     private CampaignStatus status;
 
+    /** 행사 안내 정보. 없을 수 있다 — 모든 컬럼이 null이면 Hibernate가 null로 준다. */
+    @Embedded
+    private CampaignDetail detail;
+
     public Campaign(
             Long ownerId,
             String shortCode,
@@ -58,7 +63,8 @@ public class Campaign extends BaseEntity {
             CampaignType type,
             int totalStock,
             LocalDateTime openAt,
-            boolean requiresPayment
+            boolean requiresPayment,
+            CampaignDetail detail
     ) {
         this.ownerId = ownerId;
         this.shortCode = shortCode;
@@ -67,6 +73,7 @@ public class Campaign extends BaseEntity {
         this.totalStock = totalStock;
         this.openAt = openAt;
         this.requiresPayment = requiresPayment;
+        this.detail = detail;
         this.status = CampaignStatus.SCHEDULED;
     }
 
@@ -84,6 +91,14 @@ public class Campaign extends BaseEntity {
 
     public void changeOpenAt(LocalDateTime openAt) {
         this.openAt = openAt;
+    }
+
+    /**
+     * 통째로 교체한다. 일부만 바꾸려면 전체를 다시 보내야 한다 —
+     * 필드별 병합으로 하면 "값을 지운다"를 표현할 방법이 없다.
+     */
+    public void changeDetail(CampaignDetail detail) {
+        this.detail = (detail == null || detail.isEmpty()) ? null : detail;
     }
 
     public int changeTotalStock(int newTotalStock) {
