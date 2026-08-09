@@ -14,11 +14,11 @@ export const options = {
   },
 };
 
-function createCampaign(title, requiresPayment) {
+function createCampaign(title, requiresPayment, detail) {
   const openAt = new Date(Date.now() + 4000).toISOString().slice(0, 19);
   const res = http.post(
     `${API}/campaigns`,
-    JSON.stringify({ title, totalStock: 10, openAt, requiresPayment }),
+    JSON.stringify({ title, totalStock: 10, openAt, requiresPayment, detail }),
     { headers: OWNER }
   );
   check(res, { [`${title} 생성 201`]: (r) => r.status === 201 });
@@ -155,5 +155,84 @@ export default function () {
   });
   check(http.get(`${API}/campaigns/${paid.shortCode}`), {
     '삭제된 캠페인 조회 410': (r) => r.status === 410,
+  });
+
+  detailChecks();
+}
+
+// 행사 안내 정보(detail)
+function detailChecks() {
+  // 안 넣으면 null이다.
+  const bare = createCampaign('k6 detail (없음)', false);
+  check(http.get(`${API}/campaigns/${bare.shortCode}`), {
+    'detail 없으면 null': (r) => r.json('detail') === null,
+  });
+
+  // 일부만 넣어도 된다.
+  const partial = createCampaign('k6 detail (일부)', false, { location: '올림픽공원' });
+  check(http.get(`${API}/campaigns/${partial.shortCode}`), {
+    '일부 필드만 저장': (r) =>
+      r.json('detail.location') === '올림픽공원' && r.json('detail.content') === null,
+  });
+
+  // 전부 넣기.
+  const full = {
+    content: '2026 신년 공연입니다.\n입장은 30분 전부터 가능합니다.',
+    eventAt: '2026-12-24T19:00:00',
+    eventEndAt: '2026-12-24T21:00:00',
+    location: '올림픽공원 체조경기장',
+    address: '서울시 송파구 올림픽로 424',
+    imageUrl: 'https://example.com/poster.png',
+    contact: 'help@example.com',
+    price: 30000,
+  };
+  const rich = createCampaign('k6 detail (전체)', false, full);
+  const detailRes = http.get(`${API}/campaigns/${rich.shortCode}`);
+  check(detailRes, {
+    '본문 저장': (r) => r.json('detail.content') === full.content,
+    '행사일시 저장': (r) => r.json('detail.eventAt') === full.eventAt,
+    '장소·주소 저장': (r) =>
+      r.json('detail.location') === full.location && r.json('detail.address') === full.address,
+    '가격·문의처 저장': (r) =>
+      r.json('detail.price') === 30000 && r.json('detail.contact') === full.contact,
+  });
+
+  // 목록에는 카드용 필드만 펼쳐진다.
+  const owned = http.get(`${API}/campaigns?scope=owned`, { headers: OWNER });
+  const item = owned.json('campaigns').find((c) => c.id === rich.id);
+  check(null, {
+    '목록에 행사일시·장소·이미지 노출': () =>
+      item.eventAt === full.eventAt &&
+      item.location === full.location &&
+      item.imageUrl === full.imageUrl,
+    '목록에 본문 없음': () => item.content === undefined,
+  });
+
+  // PATCH는 통째로 교체한다.
+  check(http.patch(`${API}/campaigns/${rich.id}`,
+    JSON.stringify({ detail: { location: '잠실실내체육관', price: 50000 } }),
+    { headers: OWNER }), {
+    'detail 교체 200': (r) => r.status === 200,
+    '교체된 값 반영': (r) =>
+      r.json('detail.location') === '잠실실내체육관' && r.json('detail.price') === 50000,
+    '지정 안 한 필드는 사라짐': (r) => r.json('detail.content') === null,
+  });
+
+  // 빈 detail을 보내면 안내 정보가 지워진다.
+  check(http.patch(`${API}/campaigns/${rich.id}`, JSON.stringify({ detail: {} }),
+    { headers: OWNER }), {
+    '빈 detail로 삭제': (r) => r.json('detail') === null,
+  });
+
+  // 길이 제한.
+  check(http.post(`${API}/campaigns`,
+    JSON.stringify({
+      title: 'k6 detail (초과)',
+      totalStock: 1,
+      openAt: new Date(Date.now() + 60000).toISOString().slice(0, 19),
+      requiresPayment: false,
+      detail: { content: 'x'.repeat(5001) },
+    }), { headers: OWNER }), {
+    '본문 5000자 초과 400': (r) => r.status === 400,
   });
 }

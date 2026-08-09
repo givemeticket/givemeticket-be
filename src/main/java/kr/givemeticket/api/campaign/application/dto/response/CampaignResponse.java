@@ -15,7 +15,8 @@ public record CampaignResponse(
         LocalDateTime openAt,
         boolean requiresPayment,
         CampaignStatus status,
-        boolean soldOut
+        boolean soldOut,
+        CampaignDetailInfo detail
 ) {
 
     public static CampaignResponse of(Campaign campaign, Long remainingStock) {
@@ -30,7 +31,8 @@ public record CampaignResponse(
                 campaign.getOpenAt(),
                 campaign.isRequiresPayment(),
                 campaign.getStatus(),
-                remaining <= 0
+                remaining <= 0,
+                CampaignDetailInfo.from(campaign.getDetail())
         );
     }
 }

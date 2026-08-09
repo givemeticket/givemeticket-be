@@ -1,5 +1,6 @@
 package kr.givemeticket.api.campaign.ui.dto.request;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -19,10 +20,18 @@ public record PostCampaignRequest(
         LocalDateTime openAt,
 
         @NotNull(message = "requiresPayment는 필수입니다.")
-        Boolean requiresPayment
+        Boolean requiresPayment,
+
+        @Valid
+        CampaignDetailRequest detail
 ) {
 
     public CampaignCreateRequest toCampaignCreateRequest() {
-        return new CampaignCreateRequest(title, totalStock, openAt, requiresPayment);
+        return new CampaignCreateRequest(
+                title,
+                totalStock,
+                openAt,
+                requiresPayment,
+                CampaignDetailRequest.toCommandOrNull(detail));
     }
 }

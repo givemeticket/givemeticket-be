@@ -12,6 +12,7 @@ import kr.givemeticket.api.campaign.domain.ViewerRole;
  * @param viewerRole     화면을 어떤 모습으로 그릴지 결정한다
  * @param myApplication  내 신청 내역. 없으면 null
  * @param confirmedCount 확정 신청 수. OWNER에게만 내려간다
+ * @param detail         행사 안내 정보. 등록된 게 없으면 null
  */
 public record GetCampaignResponse(
         Long id,
@@ -26,7 +27,8 @@ public record GetCampaignResponse(
         boolean soldOut,
         ViewerRole viewerRole,
         MyApplicationResponse myApplication,
-        Long confirmedCount
+        Long confirmedCount,
+        CampaignDetailResponsePart detail
 ) {
 
     public static GetCampaignResponse from(CampaignDetailResponse response) {
@@ -44,7 +46,8 @@ public record GetCampaignResponse(
                 campaign.soldOut(),
                 response.viewerRole(),
                 MyApplicationResponse.from(response.myApplication()),
-                response.confirmedCount()
+                response.confirmedCount(),
+                CampaignDetailResponsePart.from(campaign.detail())
         );
     }
 }
