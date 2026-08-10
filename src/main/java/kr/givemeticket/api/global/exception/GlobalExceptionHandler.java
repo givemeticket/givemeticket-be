@@ -2,7 +2,6 @@ package kr.givemeticket.api.global.exception;
 
 import java.util.stream.Collectors;
 import kr.givemeticket.api.global.log.dto.ErrorLog;
-import kr.givemeticket.api.payment.domain.PaymentException;
 import lombok.extern.slf4j.Slf4j;
 import net.logstash.logback.marker.Markers;
 import org.springframework.http.HttpStatus;
@@ -18,10 +17,10 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 public class GlobalExceptionHandler {
 
     /**
-     * 결제 게이트웨이 실패는 우리 잘못이 아니라 외부 의존성 문제라 따로 분류한다.
+     * 결제 게이트웨이·소셜 로그인 제공자 실패는 우리 잘못이 아니라 외부 의존성 문제라 따로 분류한다.
      */
-    @ExceptionHandler(PaymentException.class)
-    public ResponseEntity<ErrorResponse> handlePaymentException(PaymentException e) {
+    @ExceptionHandler(ExternalApiException.class)
+    public ResponseEntity<ErrorResponse> handleExternalApiException(ExternalApiException e) {
         int status = e.getStatus().value();
         logError(ErrorLog.externalError(status, e, e.getCode()), e);
         return ResponseEntity.status(e.getStatus())
