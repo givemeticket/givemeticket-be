@@ -54,4 +54,9 @@ public class JpaCampaignRepository implements CampaignRepository {
     public List<Campaign> findAllByStatusAndOpenAtLessThanEqual(CampaignStatus status, LocalDateTime now) {
         return springDataJpaCampaignRepository.findAllByStatusAndOpenAtLessThanEqual(status, now);
     }
+
+    @Override
+    public int markDeleted(Long campaignId) {
+        return springDataJpaCampaignRepository.markDeletedIfNotDeleted(campaignId, LocalDateTime.now());
+    }
 }

@@ -12,5 +12,11 @@ public enum FailureReason {
     PAYMENT_ERROR,
 
     /** 홀드 시간 안에 결제가 끝나지 않음. */
-    EXPIRED
+    EXPIRED,
+
+    /**
+     * 주최자가 행사를 삭제했다. 신청자 잘못이 아니므로 상태는 CANCELLED 로 두고 이유만 남긴다.
+     * 결제가 있었다면 함께 환불된다.
+     */
+    CAMPAIGN_DELETED
 }

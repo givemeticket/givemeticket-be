@@ -22,7 +22,8 @@ public interface ApplicationRepository {
 
     long countByCampaignIdAndStatusIn(Long campaignId, Collection<ApplicationStatus> statuses);
 
-    boolean existsByCampaignIdAndStatusIn(Long campaignId, Collection<ApplicationStatus> statuses);
+    List<Application> findAllByCampaignIdAndStatusIn(
+            Long campaignId, Collection<ApplicationStatus> statuses);
 
     /**
      * PENDING인 신청만 확정으로 바꾼다.
@@ -37,4 +38,10 @@ public interface ApplicationRepository {
     int markUnknownIfPending(Long applicationId);
 
     int cancelIfConfirmed(Long applicationId);
+
+    /**
+     * 캠페인 삭제로 인한 취소. 주어진 상태 중 하나일 때만 전이하며
+     * 실패 이유로 {@link FailureReason#CAMPAIGN_DELETED} 를 남긴다.
+     */
+    int cancelByCampaignDeletion(Long applicationId, Collection<ApplicationStatus> statuses);
 }

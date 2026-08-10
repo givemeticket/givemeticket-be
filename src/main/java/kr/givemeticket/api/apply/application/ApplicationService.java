@@ -2,6 +2,7 @@ package kr.givemeticket.api.apply.application;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 import kr.givemeticket.api.apply.application.dto.response.ApplicationResponse;
 import kr.givemeticket.api.apply.application.dto.response.CancelResponse;
@@ -131,6 +132,57 @@ public class ApplicationService {
     @Transactional(readOnly = true)
     public ApplicationResponse getApplication(Long applicationId, Long userId) {
         return ApplicationResponse.from(findOwnedApplication(applicationId, userId));
+    }
+
+    /**
+     * 캠페인이 삭제되어 남은 신청을 일괄 취소한다.
+     *
+     * <p>사용자 취소와 달리 결제 전(PENDING)과 정산 대기(UNKNOWN / MANUAL_REVIEW)도 대상이다.
+     * 재고는 캠페인과 함께 사라지므로 복원하지 않는다.
+     *
+     * <p>호출자가 신규 신청을 먼저 막은 뒤 불러야 한다. 그러지 않으면 취소하는 사이에 들어온
+     * 신청이 대상에서 누락된다.
+     *
+     * @return 실제로 취소된 신청 수
+     */
+    public int cancelAllByCampaignDeletion(Campaign campaign) {
+        List<Application> targets = applicationRepository
+                .findAllByCampaignIdAndStatusIn(campaign.getId(), ApplicationStatus.active());
+
+        int cancelled = 0;
+        for (Application application : targets) {
+            // 그 사이 사용자가 직접 취소했거나 sweeper 가 만료시켰으면 0행이다. 환불도 보내면 안 된다.
+            if (applicationPersister.cancelByCampaignDeletion(application.getId()) == 0) {
+                continue;
+            }
+            cancelled++;
+            refundIfCharged(application, campaign);
+        }
+
+        if (cancelled > 0) {
+            log.info("applications cancelled by campaign deletion: campaignId={}, count={}",
+                    campaign.getId(), cancelled);
+        }
+        return cancelled;
+    }
+
+    /**
+     * 결제 요청이 실제로 나간 건만 환불한다.
+     * PENDING 은 대부분 결제 전이고, 여기에 취소를 보내면 PG 가 모르는 거래를 취소하려 드는 꼴이 된다.
+     */
+    private void refundIfCharged(Application application, Campaign campaign) {
+        if (!campaign.isRequiresPayment()
+                || application.getPaymentKey() == null
+                || application.getPaymentRequestedAt() == null) {
+            return;
+        }
+
+        if (!paymentClient.cancel(application.getPaymentKey())) {
+            // 취소는 되돌리지 않는다. 행사는 이미 사라졌고 환불은 뒤에서 다시 시도할 문제다.
+            log.error("refund failed on campaign deletion, retry needed: "
+                            + "applicationId={}, campaignId={}, paymentKey={}",
+                    application.getId(), campaign.getId(), application.getPaymentKey());
+        }
     }
 
     private void decreaseStock(Long campaignId) {

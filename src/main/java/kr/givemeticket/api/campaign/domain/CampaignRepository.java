@@ -23,4 +23,9 @@ public interface CampaignRepository {
     List<Campaign> findAllByIdIn(Collection<Long> campaignIds);
 
     List<Campaign> findAllByStatusAndOpenAtLessThanEqual(CampaignStatus status, LocalDateTime now);
+
+    /**
+     * @return 실제로 바뀐 행 수. 0이면 그 사이 다른 요청이 이미 삭제한 것이다
+     */
+    int markDeleted(Long campaignId);
 }
