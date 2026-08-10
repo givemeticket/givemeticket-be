@@ -12,7 +12,7 @@ import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignsResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.PatchCampaignResponse;
 import kr.givemeticket.api.global.log.BusinessLogging;
-import kr.givemeticket.api.global.web.CurrentUserId;
+import kr.givemeticket.api.global.auth.annotation.LoginUserId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -34,7 +34,7 @@ public class CampaignController implements CampaignApiSpec {
     @BusinessLogging("캠페인 생성")
     @PostMapping("campaigns")
     public ResponseEntity<CreateCampaignResponse> createCampaign(
-            @CurrentUserId Long userId,
+            @LoginUserId Long userId,
             @Valid @RequestBody PostCampaignRequest request
     ) {
         CreateCampaignResponse createCampaignResponse = CreateCampaignResponse.from(
@@ -47,7 +47,7 @@ public class CampaignController implements CampaignApiSpec {
     @Override
     @GetMapping("campaigns/{shortCode}")
     public ResponseEntity<GetCampaignResponse> readCampaign(
-            @CurrentUserId(required = false) Long userId,
+            @LoginUserId(required = false) Long userId,
             @PathVariable("shortCode") String shortCode
     ) {
         GetCampaignResponse getCampaignResponse = GetCampaignResponse.from(
@@ -59,7 +59,7 @@ public class CampaignController implements CampaignApiSpec {
     @Override
     @GetMapping("campaigns")
     public ResponseEntity<GetCampaignsResponse> readCampaigns(
-            @CurrentUserId Long userId,
+            @LoginUserId Long userId,
             @RequestParam("scope") String scope
     ) {
         CampaignScope campaignScope = CampaignScope.from(scope);
@@ -77,7 +77,7 @@ public class CampaignController implements CampaignApiSpec {
     @BusinessLogging("캠페인 수정")
     @PatchMapping("campaigns/{campaignId}")
     public ResponseEntity<PatchCampaignResponse> updateCampaign(
-            @CurrentUserId Long userId,
+            @LoginUserId Long userId,
             @PathVariable("campaignId") Long campaignId,
             @Valid @RequestBody PatchCampaignRequest request
     ) {
@@ -91,7 +91,7 @@ public class CampaignController implements CampaignApiSpec {
     @BusinessLogging("캠페인 삭제")
     @DeleteMapping("campaigns/{campaignId}")
     public ResponseEntity<Void> deleteCampaign(
-            @CurrentUserId Long userId,
+            @LoginUserId Long userId,
             @PathVariable("campaignId") Long campaignId
     ) {
         campaignService.deleteCampaign(campaignId, userId);

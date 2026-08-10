@@ -35,7 +35,8 @@ public class BusinessLogAspect {
     }
 
     /**
-     * LogFilter 가 X-User-Id 헤더를 MDC 에 넣어 둔다. 인자 순서에 의존하지 않기 위해 MDC 에서 읽는다.
+     * LogFilter 가 액세스 토큰에서 꺼낸 userId 를 MDC 에 넣어 둔다.
+     * 인자 순서에 의존하지 않기 위해 MDC 에서 읽는다.
      */
     private Long currentUserId() {
         String userId = MDC.get(USER_ID);

@@ -15,12 +15,15 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.util.List;
 import java.util.Map;
+import kr.givemeticket.api.global.auth.AccessTokenProvider;
+import kr.givemeticket.api.global.auth.JwtProvider;
 import net.logstash.logback.marker.LogstashMarker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -31,9 +34,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 class LogFilterTest {
 
+    private static final String SECRET = "log-filter-test-secret-key-at-least-32-bytes";
+
     private MockMvc mockMvc;
     private ListAppender<ILoggingEvent> appender;
     private Logger logger;
+    private AccessTokenProvider accessTokenProvider;
 
     @RestController
     static class StubController {
@@ -51,8 +57,11 @@ class LogFilterTest {
 
     @BeforeEach
     void setUp() {
+        accessTokenProvider = new AccessTokenProvider(new JwtProvider(SECRET), 60_000);
+
         LogFilter filter = new LogFilter(
                 new SensitiveDataMasker(new ObjectMapper(), new LogProperties(null, null, 0)),
+                accessTokenProvider,
                 new LogProperties(null, null, 0)
         );
         mockMvc = MockMvcBuilders.standaloneSetup(new StubController())
@@ -76,7 +85,7 @@ class LogFilterTest {
     void logsRequestAndResponse() throws Exception {
         mockMvc.perform(post("/api/v1/echo")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .header("X-User-Id", "42")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessTokenProvider.createToken(42L))
                         .content("{\"campaignId\":7,\"password\":\"secret\"}"))
                 .andExpect(result -> assertThat(result.getResponse().getStatus()).isEqualTo(200));
 
