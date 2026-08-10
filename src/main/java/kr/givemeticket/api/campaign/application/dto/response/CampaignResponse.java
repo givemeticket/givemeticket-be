@@ -7,6 +7,7 @@ import kr.givemeticket.api.campaign.domain.CampaignType;
 
 public record CampaignResponse(
         Long id,
+        Long ownerId,
         String shortCode,
         String title,
         CampaignType type,
@@ -23,6 +24,7 @@ public record CampaignResponse(
         long remaining = (remainingStock == null) ? campaign.getTotalStock() : remainingStock;
         return new CampaignResponse(
                 campaign.getId(),
+                campaign.getOwnerId(),
                 campaign.getShortCode(),
                 campaign.getTitle(),
                 campaign.getType(),
