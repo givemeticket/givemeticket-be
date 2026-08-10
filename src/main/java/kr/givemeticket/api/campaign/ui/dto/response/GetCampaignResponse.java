@@ -16,6 +16,7 @@ import kr.givemeticket.api.campaign.domain.ViewerRole;
  */
 public record GetCampaignResponse(
         Long id,
+        Long ownerId,
         String shortCode,
         String title,
         CampaignType type,
@@ -35,6 +36,7 @@ public record GetCampaignResponse(
         CampaignResponse campaign = response.campaign();
         return new GetCampaignResponse(
                 campaign.id(),
+                campaign.ownerId(),
                 campaign.shortCode(),
                 campaign.title(),
                 campaign.type(),

@@ -2,14 +2,12 @@ package kr.givemeticket.api.apply.ui.apiSpec;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import kr.givemeticket.api.apply.ui.dto.response.ApplyResponse;
 import kr.givemeticket.api.apply.ui.dto.response.CancelApplicationResponse;
 import kr.givemeticket.api.apply.ui.dto.response.ConfirmApplicationResponse;
 import kr.givemeticket.api.apply.ui.dto.response.GetApplicationResponse;
-import kr.givemeticket.api.global.web.CurrentUserId;
+import kr.givemeticket.api.global.auth.annotation.LoginUserId;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 
@@ -25,10 +23,8 @@ public interface ApplicationApiSpec {
                       넘기면 자리가 자동으로 회수됩니다
                     - 매진 409 SOLD_OUT / 중복 409 ALREADY_APPLIED
                     """)
-    @Parameter(name = "X-User-Id", description = "유저 식별자", in = ParameterIn.HEADER, required = true,
-            schema = @Schema(type = "integer", format = "int64", example = "1"))
     ResponseEntity<ApplyResponse> apply(
-            @Parameter(hidden = true) @CurrentUserId Long userId,
+            @Parameter(hidden = true) @LoginUserId Long userId,
             @Parameter(description = "캠페인 ID", example = "1")
             @PathVariable("campaignId") Long campaignId
     );
@@ -44,10 +40,8 @@ public interface ApplicationApiSpec {
                       — 둘 다 재고가 반납됩니다
                     - 홀드 만료 409 APPLICATION_EXPIRED / 그 밖의 상태 409 APPLICATION_NOT_PENDING
                     """)
-    @Parameter(name = "X-User-Id", description = "유저 식별자", in = ParameterIn.HEADER, required = true,
-            schema = @Schema(type = "integer", format = "int64", example = "1"))
     ResponseEntity<ConfirmApplicationResponse> confirmApplication(
-            @Parameter(hidden = true) @CurrentUserId Long userId,
+            @Parameter(hidden = true) @LoginUserId Long userId,
             @Parameter(description = "신청 ID", example = "1")
             @PathVariable("applicationId") Long applicationId
     );
@@ -63,20 +57,16 @@ public interface ApplicationApiSpec {
                     - 결제 결과 확인 중(UNKNOWN)인 신청은 409 APPLICATION_SETTLEMENT_PENDING
                     - 그 밖의 상태는 409 APPLICATION_NOT_CANCELABLE
                     """)
-    @Parameter(name = "X-User-Id", description = "유저 식별자", in = ParameterIn.HEADER, required = true,
-            schema = @Schema(type = "integer", format = "int64", example = "1"))
     ResponseEntity<CancelApplicationResponse> cancelApplication(
-            @Parameter(hidden = true) @CurrentUserId Long userId,
+            @Parameter(hidden = true) @LoginUserId Long userId,
             @Parameter(description = "신청 ID", example = "1")
             @PathVariable("applicationId") Long applicationId
     );
 
     @Operation(summary = "신청 내역 조회",
             description = "본인의 신청 내역만 조회할 수 있습니다. UNKNOWN 상태를 폴링할 때 씁니다.")
-    @Parameter(name = "X-User-Id", description = "유저 식별자", in = ParameterIn.HEADER, required = true,
-            schema = @Schema(type = "integer", format = "int64", example = "1"))
     ResponseEntity<GetApplicationResponse> readApplication(
-            @Parameter(hidden = true) @CurrentUserId Long userId,
+            @Parameter(hidden = true) @LoginUserId Long userId,
             @Parameter(description = "신청 ID", example = "1")
             @PathVariable("applicationId") Long applicationId
     );

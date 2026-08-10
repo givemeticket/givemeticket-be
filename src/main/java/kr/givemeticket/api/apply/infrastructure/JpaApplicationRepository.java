@@ -50,8 +50,15 @@ public class JpaApplicationRepository implements ApplicationRepository {
     }
 
     @Override
-    public boolean existsByCampaignIdAndStatusIn(Long campaignId, Collection<ApplicationStatus> statuses) {
-        return springDataJpaApplicationRepository.existsByCampaignIdAndStatusIn(campaignId, statuses);
+    public List<Application> findAllByCampaignIdAndStatusIn(
+            Long campaignId, Collection<ApplicationStatus> statuses) {
+        return springDataJpaApplicationRepository.findAllByCampaignIdAndStatusIn(campaignId, statuses);
+    }
+
+    @Override
+    public int cancelByCampaignDeletion(Long applicationId, Collection<ApplicationStatus> statuses) {
+        return springDataJpaApplicationRepository.cancelByCampaignDeletion(
+                applicationId, statuses, LocalDateTime.now());
     }
 
     @Override

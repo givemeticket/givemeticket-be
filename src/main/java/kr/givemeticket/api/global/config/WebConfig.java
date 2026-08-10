@@ -1,7 +1,8 @@
 package kr.givemeticket.api.global.config;
 
 import java.util.List;
-import kr.givemeticket.api.global.web.CurrentUserIdArgumentResolver;
+import kr.givemeticket.api.global.auth.LoginUserIdArgumentResolver;
+import kr.givemeticket.api.global.auth.ProviderArgumentResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.method.HandlerTypePredicate;
@@ -16,7 +17,8 @@ public class WebConfig implements WebMvcConfigurer {
 
     private static final String API_PREFIX = "/api/v1";
 
-    private final CurrentUserIdArgumentResolver currentUserIdArgumentResolver;
+    private final LoginUserIdArgumentResolver loginUserIdArgumentResolver;
+    private final ProviderArgumentResolver providerArgumentResolver;
 
     @Override
     public void configurePathMatch(PathMatchConfigurer configurer) {
@@ -34,6 +36,7 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
-        resolvers.add(currentUserIdArgumentResolver);
+        resolvers.add(loginUserIdArgumentResolver);
+        resolvers.add(providerArgumentResolver);
     }
 }

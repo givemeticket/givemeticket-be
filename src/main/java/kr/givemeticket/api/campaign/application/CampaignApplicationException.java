@@ -57,11 +57,6 @@ public class CampaignApplicationException extends BusinessException {
                 "정원은 현재보다 늘리는 것만 가능합니다.");
     }
 
-    public static CampaignApplicationException deleteNotAllowed() {
-        return new CampaignApplicationException(HttpStatus.CONFLICT, "CAMPAIGN_DELETE_NOT_ALLOWED",
-                "신청자가 있는 캠페인은 삭제할 수 없습니다.");
-    }
-
     public static CampaignApplicationException shortCodeGenerationFailed() {
         return new CampaignApplicationException(HttpStatus.INTERNAL_SERVER_ERROR, "SHORT_CODE_GENERATION_FAILED",
                 "공유 링크 생성에 실패했습니다.");

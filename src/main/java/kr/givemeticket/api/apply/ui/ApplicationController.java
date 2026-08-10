@@ -9,7 +9,7 @@ import kr.givemeticket.api.apply.ui.dto.response.CancelApplicationResponse;
 import kr.givemeticket.api.apply.ui.dto.response.ConfirmApplicationResponse;
 import kr.givemeticket.api.apply.ui.dto.response.GetApplicationResponse;
 import kr.givemeticket.api.global.log.BusinessLogging;
-import kr.givemeticket.api.global.web.CurrentUserId;
+import kr.givemeticket.api.global.auth.annotation.LoginUserId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,7 +27,7 @@ public class ApplicationController implements ApplicationApiSpec {
     @BusinessLogging("캠페인 신청")
     @PostMapping("campaigns/{campaignId}/apply")
     public ResponseEntity<ApplyResponse> apply(
-            @CurrentUserId Long userId,
+            @LoginUserId Long userId,
             @PathVariable("campaignId") Long campaignId
     ) {
         ApplyResponse applyResponse = ApplyResponse.from(
@@ -41,7 +41,7 @@ public class ApplicationController implements ApplicationApiSpec {
     @BusinessLogging("신청 확정(결제)")
     @PostMapping("applications/{applicationId}/confirm")
     public ResponseEntity<ConfirmApplicationResponse> confirmApplication(
-            @CurrentUserId Long userId,
+            @LoginUserId Long userId,
             @PathVariable("applicationId") Long applicationId
     ) {
         ApplicationResponse response = applicationService.confirm(applicationId, userId);
@@ -58,7 +58,7 @@ public class ApplicationController implements ApplicationApiSpec {
     @BusinessLogging("신청 취소")
     @PostMapping("applications/{applicationId}/cancel")
     public ResponseEntity<CancelApplicationResponse> cancelApplication(
-            @CurrentUserId Long userId,
+            @LoginUserId Long userId,
             @PathVariable("applicationId") Long applicationId
     ) {
         CancelApplicationResponse cancelApplicationResponse = CancelApplicationResponse.from(
@@ -70,7 +70,7 @@ public class ApplicationController implements ApplicationApiSpec {
     @Override
     @GetMapping("applications/{applicationId}")
     public ResponseEntity<GetApplicationResponse> readApplication(
-            @CurrentUserId Long userId,
+            @LoginUserId Long userId,
             @PathVariable("applicationId") Long applicationId
     ) {
         GetApplicationResponse getApplicationResponse = GetApplicationResponse.from(

@@ -30,7 +30,8 @@ public interface SpringDataJpaApplicationRepository extends JpaRepository<Applic
 
     long countByCampaignIdAndStatusIn(Long campaignId, Collection<ApplicationStatus> statuses);
 
-    boolean existsByCampaignIdAndStatusIn(Long campaignId, Collection<ApplicationStatus> statuses);
+    List<Application> findAllByCampaignIdAndStatusIn(
+            Long campaignId, Collection<ApplicationStatus> statuses);
 
     /*
      * 아래 세 개는 모두 "PENDING일 때만" 전이한다. 반환된 행 수가 1일 때만 재고를 건드리기 때문에,
@@ -91,4 +92,25 @@ public interface SpringDataJpaApplicationRepository extends JpaRepository<Applic
                AND a.status = kr.givemeticket.api.apply.domain.ApplicationStatus.CONFIRMED
             """)
     int cancelIfConfirmed(@Param("id") Long id, @Param("now") LocalDateTime now);
+
+    /**
+     * 캠페인 삭제로 인한 일괄 취소. 사용자 취소와 달리 결제 전(PENDING)이나
+     * 정산 대기(UNKNOWN / MANUAL_REVIEW)도 대상이라 상태 조건을 넓게 받는다.
+     *
+     * <p>그 사이 사용자가 직접 취소했거나 sweeper 가 만료시켰으면 0행이 바뀐다.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE Application a
+               SET a.status = kr.givemeticket.api.apply.domain.ApplicationStatus.CANCELLED,
+                   a.failureReason = kr.givemeticket.api.apply.domain.FailureReason.CAMPAIGN_DELETED,
+                   a.expiresAt = null,
+                   a.updatedAt = :now
+             WHERE a.id = :id
+               AND a.status IN :statuses
+            """)
+    int cancelByCampaignDeletion(
+            @Param("id") Long id,
+            @Param("statuses") Collection<ApplicationStatus> statuses,
+            @Param("now") LocalDateTime now);
 }

@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import kr.givemeticket.api.apply.application.ApplicationService;
 import kr.givemeticket.api.apply.domain.Application;
 import kr.givemeticket.api.apply.domain.ApplicationRepository;
 import kr.givemeticket.api.apply.domain.ApplicationStatus;
@@ -35,7 +36,9 @@ public class CampaignService {
     private static final Set<ApplicationStatus> CONFIRMED_ONLY = Set.of(ApplicationStatus.CONFIRMED);
 
     private final CampaignRepository campaignRepository;
+    private final CampaignPersister campaignPersister;
     private final ApplicationRepository applicationRepository;
+    private final ApplicationService applicationService;
     private final StockRepository stockRepository;
     private final CampaignStateRepository campaignStateRepository;
     private final ShortCodeGenerator shortCodeGenerator;
@@ -144,26 +147,34 @@ public class CampaignService {
         }
 
         if (request.detail() != null) {
-            // 안내 정보는 신청 로직과 무관하므로 오픈 이후에도 자유롭게 고칠 수 있다.
             campaign.changeDetail(request.detail().toCampaignDetail());
         }
 
         return CampaignResponse.of(campaign, stockRepository.getRemaining(campaignId));
     }
 
-    @Transactional
+    /**
+     * 신청자가 있어도 삭제할 수 있다. 남은 신청은 전부 취소되고, 결제된 건은 환불된다.
+     *
+     * <p>환불이 신청 수만큼 외부 호출을 일으키므로 트랜잭션으로 감싸지 않는다.
+     * 상태 전이는 {@link CampaignPersister}·{@link ApplicationPersister} 가 건별로 짧게 끊는다.
+     */
     public void deleteCampaign(Long campaignId, Long userId) {
         Campaign campaign = findManageableCampaign(campaignId, userId);
 
-        if (applicationRepository.existsByCampaignIdAndStatusIn(campaignId, ApplicationStatus.active())) {
-            throw CampaignApplicationException.deleteNotAllowed();
-        }
-
-        campaign.delete();
-        stockRepository.remove(campaignId);
+        // 신규 신청을 먼저 막는다. 이걸 뒤로 미루면 취소하는 사이에 들어온 신청이 살아남는다.
         campaignStateRepository.remove(campaignId);
 
-        log.info("campaign deleted: campaignId={}, ownerId={}", campaignId, userId);
+        if (campaignPersister.markDeleted(campaignId) == 0) {
+            // 그 사이 다른 요청이 이미 지웠다. 취소·환불을 두 번 돌리지 않는다.
+            throw CampaignApplicationException.campaignDeleted();
+        }
+
+        int cancelled = applicationService.cancelAllByCampaignDeletion(campaign);
+        stockRepository.remove(campaignId);
+
+        log.info("campaign deleted: campaignId={}, ownerId={}, cancelledApplications={}",
+                campaignId, userId, cancelled);
     }
 
     private Campaign findManageableCampaign(Long campaignId, Long userId) {

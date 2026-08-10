@@ -17,6 +17,7 @@ public record GetCampaignsResponse(List<CampaignItem> campaigns) {
      */
     public record CampaignItem(
             Long id,
+            Long ownerId,
             String shortCode,
             String title,
             int totalStock,
@@ -36,6 +37,7 @@ public record GetCampaignsResponse(List<CampaignItem> campaigns) {
             CampaignDetailInfo detail = campaign.detail();
             return new CampaignItem(
                     campaign.id(),
+                    campaign.ownerId(),
                     campaign.shortCode(),
                     campaign.title(),
                     campaign.totalStock(),

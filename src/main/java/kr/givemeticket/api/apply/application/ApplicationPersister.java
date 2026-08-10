@@ -3,6 +3,7 @@ package kr.givemeticket.api.apply.application;
 import java.time.LocalDateTime;
 import kr.givemeticket.api.apply.domain.Application;
 import kr.givemeticket.api.apply.domain.ApplicationRepository;
+import kr.givemeticket.api.apply.domain.ApplicationStatus;
 import kr.givemeticket.api.apply.domain.FailureReason;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -59,6 +60,11 @@ public class ApplicationPersister {
     @Transactional
     public int cancel(Long applicationId) {
         return applicationRepository.cancelIfConfirmed(applicationId);
+    }
+
+    @Transactional
+    public int cancelByCampaignDeletion(Long applicationId) {
+        return applicationRepository.cancelByCampaignDeletion(applicationId, ApplicationStatus.active());
     }
 
     private Application findReusable(Long campaignId, Long userId) {

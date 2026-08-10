@@ -1,9 +1,10 @@
-package kr.givemeticket.api.global.web;
+package kr.givemeticket.api.global.auth;
 
 import jakarta.servlet.http.HttpServletRequest;
-import kr.givemeticket.api.global.exception.BusinessException;
+import kr.givemeticket.api.global.auth.annotation.LoginUserId;
+import lombok.RequiredArgsConstructor;
 import org.springframework.core.MethodParameter;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.support.WebDataBinderFactory;
 import org.springframework.web.context.request.NativeWebRequest;
@@ -11,13 +12,14 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
 @Component
-public class CurrentUserIdArgumentResolver implements HandlerMethodArgumentResolver {
+@RequiredArgsConstructor
+public class LoginUserIdArgumentResolver implements HandlerMethodArgumentResolver {
 
-    private static final String USER_ID_HEADER = "X-User-Id";
+    private final AccessTokenProvider accessTokenProvider;
 
     @Override
     public boolean supportsParameter(MethodParameter parameter) {
-        return parameter.hasParameterAnnotation(CurrentUserId.class)
+        return parameter.hasParameterAnnotation(LoginUserId.class)
                 && parameter.getParameterType().equals(Long.class);
     }
 
@@ -29,20 +31,16 @@ public class CurrentUserIdArgumentResolver implements HandlerMethodArgumentResol
             WebDataBinderFactory binderFactory
     ) {
         HttpServletRequest request = (HttpServletRequest) webRequest.getNativeRequest();
-        String header = request.getHeader(USER_ID_HEADER);
+        String header = request.getHeader(HttpHeaders.AUTHORIZATION);
+
         if (header == null || header.isBlank()) {
-            CurrentUserId annotation = parameter.getParameterAnnotation(CurrentUserId.class);
+            LoginUserId annotation = parameter.getParameterAnnotation(LoginUserId.class);
             if (annotation != null && !annotation.required()) {
                 return null;
             }
-            throw new BusinessException(HttpStatus.UNAUTHORIZED, "MISSING_USER_ID",
-                    "X-User-Id 헤더가 필요합니다.");
+            throw AuthException.missingToken();
         }
-        try {
-            return Long.parseLong(header.trim());
-        } catch (NumberFormatException e) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "INVALID_USER_ID",
-                    "X-User-Id 헤더는 숫자여야 합니다.");
-        }
+
+        return accessTokenProvider.extractUserId(BearerToken.resolve(header));
     }
 }

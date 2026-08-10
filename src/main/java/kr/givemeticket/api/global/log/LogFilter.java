@@ -7,13 +7,17 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import kr.givemeticket.api.global.auth.AccessTokenProvider;
+import kr.givemeticket.api.global.auth.BearerToken;
 import kr.givemeticket.api.global.log.dto.RequestLog;
 import kr.givemeticket.api.global.log.dto.ResponseLog;
 import lombok.extern.slf4j.Slf4j;
 import net.logstash.logback.marker.Markers;
 import org.slf4j.MDC;
 import org.springframework.core.Ordered;
+import org.springframework.http.HttpHeaders;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
@@ -37,15 +41,17 @@ public class LogFilter extends OncePerRequestFilter {
     private static final String REQUEST_URI = "request_uri";
     private static final String CLIENT_IP = "client_ip";
     private static final String USER_ID = "user_id";
-    private static final String USER_ID_HEADER = "X-User-Id";
     private static final List<String> FORWARDED_FOR_HEADERS = List.of("X-Forwarded-For", "X-Real-IP");
 
     private final AntPathMatcher antPathMatcher = new AntPathMatcher();
     private final SensitiveDataMasker masker;
+    private final AccessTokenProvider accessTokenProvider;
     private final List<String> excludePatterns;
 
-    public LogFilter(SensitiveDataMasker masker, LogProperties properties) {
+    public LogFilter(SensitiveDataMasker masker, AccessTokenProvider accessTokenProvider,
+                     LogProperties properties) {
         this.masker = masker;
+        this.accessTokenProvider = accessTokenProvider;
         this.excludePatterns = properties.excludePatterns();
     }
 
@@ -86,9 +92,23 @@ public class LogFilter extends OncePerRequestFilter {
         MDC.put(REQUEST_URI, requestUri);
         MDC.put(CLIENT_IP, resolveClientIp(request));
 
-        String userId = request.getHeader(USER_ID_HEADER);
-        if (StringUtils.hasText(userId)) {
-            MDC.put(USER_ID, userId);
+        resolveUserId(request).ifPresent(userId -> MDC.put(USER_ID, String.valueOf(userId)));
+    }
+
+    /**
+     * 토큰이 없거나 잘못됐어도 로그는 남아야 한다.
+     * 인증 실패 자체는 ArgumentResolver 가 401 로 처리하므로 여기서는 조용히 넘긴다.
+     */
+    private Optional<Long> resolveUserId(HttpServletRequest request) {
+        String header = request.getHeader(HttpHeaders.AUTHORIZATION);
+        if (!StringUtils.hasText(header)) {
+            return Optional.empty();
+        }
+
+        try {
+            return Optional.of(accessTokenProvider.extractUserId(BearerToken.resolve(header)));
+        } catch (RuntimeException e) {
+            return Optional.empty();
         }
     }
 
