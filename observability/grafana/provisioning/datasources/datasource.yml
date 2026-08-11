@@ -19,9 +19,13 @@ datasources:
       maxLines: 1000
       derivedFields:
         # 로그의 request_id 로 같은 요청이 남긴 모든 라인을 모아 본다.
+        #
+        # matcherType 은 regex 여야 한다. request_id 는 Loki 라벨이 아니라 JSON 본문 필드라서
+        # (알로이가 라벨로 승격하는 건 level/log_type 뿐이다) label 매칭으로는 링크가 아예 뜨지 않는다.
+        # 조회도 | json 파싱 대신 line contains 로 한다. 요청 ID 는 사실상 유일해서 결과가 같고 훨씬 빠르다.
         - name: request_id
-          matcherType: label
-          matcherRegex: request_id
+          matcherType: regex
+          matcherRegex: '"request_id"\s*:\s*"([^"]+)"'
           datasourceUid: loki
-          url: '{service="givemeticket-api"} | json | request_id="${__value.raw}"'
+          url: '{service="givemeticket-api"} |= "${__value.raw}"'
           urlDisplayLabel: '이 요청의 전체 로그'
