@@ -17,7 +17,7 @@ public class KakaoLoginConfig {
     public LoginClient kakaoLoginClient(KakaoLoginProperties properties,
                                         IdTokenVerifier kakaoIdTokenVerifier) {
         return new KakaoLoginClient(kakaoRestClient(properties), kakaoIdTokenVerifier,
-                properties.restApiKey());
+                properties.restApiKey(), properties.clientSecret());
     }
 
     @Bean

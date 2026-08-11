@@ -14,14 +14,15 @@ public class JpaUserRepository implements UserRepository {
     private final SpringDataJpaUserRepository springDataJpaUserRepository;
 
     @Override
+    public Optional<User> findById(Long userId) {
+        return springDataJpaUserRepository.findById(userId);
+    }
+
+    @Override
     public Optional<User> findByProviderIdAndProvider(String providerId, Provider provider) {
         return springDataJpaUserRepository.findByProviderIdAndProvider(providerId, provider);
     }
 
-    @Override
-    public boolean existsByProviderIdAndProvider(String providerId, Provider provider) {
-        return springDataJpaUserRepository.existsByProviderIdAndProvider(providerId, provider);
-    }
 
     @Override
     public User save(User user) {

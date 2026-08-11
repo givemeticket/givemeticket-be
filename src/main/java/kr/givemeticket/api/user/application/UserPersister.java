@@ -1,5 +1,6 @@
 package kr.givemeticket.api.user.application;
 
+import java.time.LocalDateTime;
 import kr.givemeticket.api.login.domain.ProviderPrincipal;
 import kr.givemeticket.api.user.domain.User;
 import kr.givemeticket.api.user.domain.UserRepository;
@@ -19,6 +20,16 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserPersister {
 
     private final UserRepository userRepository;
+
+    /**
+     * 개인정보를 지우는 것만 짧은 트랜잭션으로 끊는다.
+     * 앞선 취소·환불이 외부 호출이라 같은 트랜잭션에 묶을 수 없다.
+     */
+    @Transactional
+    public void withdraw(Long userId) {
+        userRepository.findById(userId)
+                .ifPresent(user -> user.withdraw(LocalDateTime.now()));
+    }
 
     @Transactional
     public Long save(ProviderPrincipal principal) {

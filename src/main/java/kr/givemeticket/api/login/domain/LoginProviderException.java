@@ -12,6 +12,15 @@ public class LoginProviderException extends ExternalApiException {
         super(status, code, message);
     }
 
+    /**
+     * 앱 키·시크릿이 틀려서 제공자가 우리를 못 알아본 경우. 사용자가 다시 시도해도 달라지지 않는다.
+     * 인가 코드 문제와 섞이면 설정을 의심하지 못하고 프론트만 뒤지게 된다.
+     */
+    public static LoginProviderException misconfigured() {
+        return new LoginProviderException(HttpStatus.INTERNAL_SERVER_ERROR, "LOGIN_PROVIDER_MISCONFIGURED",
+                "소셜 로그인 설정이 올바르지 않습니다.");
+    }
+
     public static LoginProviderException tokenRequestFailed() {
         return new LoginProviderException(HttpStatus.BAD_GATEWAY, "LOGIN_PROVIDER_ERROR",
                 "소셜 로그인 제공자 호출에 실패했습니다.");

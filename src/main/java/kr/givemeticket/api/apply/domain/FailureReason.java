@@ -18,5 +18,10 @@ public enum FailureReason {
      * 주최자가 행사를 삭제했다. 신청자 잘못이 아니므로 상태는 CANCELLED 로 두고 이유만 남긴다.
      * 결제가 있었다면 함께 환불된다.
      */
-    CAMPAIGN_DELETED
+    CAMPAIGN_DELETED,
+
+    /**
+     * 신청자가 탈퇴했다. 자리는 반납되어 다른 사람이 신청할 수 있다.
+     */
+    USER_WITHDRAWN
 }

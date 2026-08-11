@@ -56,9 +56,10 @@ public class JpaApplicationRepository implements ApplicationRepository {
     }
 
     @Override
-    public int cancelByCampaignDeletion(Long applicationId, Collection<ApplicationStatus> statuses) {
-        return springDataJpaApplicationRepository.cancelByCampaignDeletion(
-                applicationId, statuses, LocalDateTime.now());
+    public int cancelWithReason(Long applicationId, Collection<ApplicationStatus> statuses,
+                                FailureReason reason) {
+        return springDataJpaApplicationRepository.cancelWithReason(
+                applicationId, statuses, reason, LocalDateTime.now());
     }
 
     @Override
