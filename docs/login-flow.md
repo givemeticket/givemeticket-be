@@ -91,6 +91,7 @@ https://nid.naver.com/oauth2.0/authorize
 | 400 | `STATE_REQUIRED` | 네이버인데 `state`를 안 보냄 |
 | 400 | `INVALID_AUTHORIZATION_CODE` | 코드 만료·재사용, `redirectUrl`/`state` 불일치 |
 | 401 | `INVALID_ID_TOKEN` | 카카오 응답을 신뢰할 수 없음 (카카오만) |
+| 500 | `LOGIN_PROVIDER_MISCONFIGURED` | 앱 키·시크릿 설정 문제. 재시도해도 소용없으니 백엔드에 알려주세요 |
 | 502 | `LOGIN_PROVIDER_ERROR` | 제공자 호출 실패 |
 | 502 | `LOGIN_PROVIDER_PROFILE_ERROR` | 네이버 프로필 조회 실패 (네이버만) |
 

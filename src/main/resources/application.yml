@@ -38,6 +38,8 @@ external:
   kakao:
     base-url: ${KAKAO_AUTH_BASE_URL:https://kauth.kakao.com}
     rest-api-key: ${KAKAO_REST_API_KEY:kakao-rest-api-key}
+    # 콘솔에서 Client Secret 을 '사용함' 으로 켰을 때만 채운다.
+    client-secret: ${KAKAO_CLIENT_SECRET:}
     issuer: ${KAKAO_ISSUER:https://kauth.kakao.com}
     jwks-path: ${KAKAO_JWKS_PATH:/.well-known/jwks.json}
     jwks-cache-ttl: ${KAKAO_JWKS_CACHE_TTL:15m}
