@@ -21,6 +21,9 @@ public record NaverProfileResponse(
 
     private static final String SUCCESS_CODE = "00";
 
+    /**
+     * nickname 과 profileImage 는 선택 동의 항목이라 비어 올 수 있다.
+     */
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Profile(
 
@@ -28,7 +31,10 @@ public record NaverProfileResponse(
             String id,
 
             @JsonProperty("nickname")
-            String nickname
+            String nickname,
+
+            @JsonProperty("profile_image")
+            String profileImage
     ) {
 
     }

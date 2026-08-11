@@ -6,6 +6,7 @@ import kr.givemeticket.api.login.domain.LoginClient;
 import kr.givemeticket.api.login.domain.LoginException;
 import kr.givemeticket.api.login.domain.LoginProviderException;
 import kr.givemeticket.api.login.domain.Provider;
+import kr.givemeticket.api.login.domain.ProviderPrincipal;
 import kr.givemeticket.api.login.infrastructure.dto.KakaoTokenResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -16,7 +17,8 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 /**
- * 카카오는 OIDC 를 지원하므로 토큰 응답의 id_token 만 검증하면 된다. 추가 호출이 없다.
+ * 카카오는 OIDC 를 지원하므로 토큰 응답의 id_token 만 검증하면 된다.
+ * 닉네임과 프로필 이미지도 그 안에 들어 있어 프로필 API 를 따로 부르지 않는다.
  */
 @RequiredArgsConstructor
 public class KakaoLoginClient implements LoginClient {
@@ -34,10 +36,10 @@ public class KakaoLoginClient implements LoginClient {
     }
 
     @Override
-    public String fetchProviderId(AuthCodeCommand command) {
+    public ProviderPrincipal fetchPrincipal(AuthCodeCommand command) {
         KakaoTokenResponse response = requestToken(command);
 
-        return idTokenVerifier.extractProviderId(response.idToken());
+        return idTokenVerifier.extractPrincipal(response.idToken());
     }
 
     /**

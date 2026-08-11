@@ -29,7 +29,7 @@ class CorsConfigTest {
 
     private CorsConfiguration configure(String... allowedOrigins) {
         InspectableCorsRegistry registry = new InspectableCorsRegistry();
-        new WebConfig(null, null, allowedOrigins, Duration.ofHours(1)).addCorsMappings(registry);
+        new WebConfig(null, allowedOrigins, Duration.ofHours(1)).addCorsMappings(registry);
         return registry.getCorsConfigurations().get("/**");
     }
 
@@ -51,7 +51,7 @@ class CorsConfigTest {
     @DisplayName("허용 오리진이 비면 부팅 단계에서 걸린다")
     void rejectsEmptyAllowedOrigins() {
         // 빈 목록으로 뜨면 브라우저 요청만 조용히 전부 막힌다
-        assertThatThrownBy(() -> new WebConfig(null, null, new String[0], Duration.ofHours(1)))
+        assertThatThrownBy(() -> new WebConfig(null, new String[0], Duration.ofHours(1)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("app.cors.allowed-origins");
     }
