@@ -3,7 +3,6 @@ package kr.givemeticket.api.global.config;
 import java.time.Duration;
 import java.util.List;
 import kr.givemeticket.api.global.auth.LoginUserIdArgumentResolver;
-import kr.givemeticket.api.global.auth.ProviderArgumentResolver;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
@@ -19,13 +18,11 @@ public class WebConfig implements WebMvcConfigurer {
     private static final String API_PREFIX = "/api/v1";
 
     private final LoginUserIdArgumentResolver loginUserIdArgumentResolver;
-    private final ProviderArgumentResolver providerArgumentResolver;
     private final String[] corsAllowedOrigins;
     private final Duration corsMaxAge;
 
     public WebConfig(
             LoginUserIdArgumentResolver loginUserIdArgumentResolver,
-            ProviderArgumentResolver providerArgumentResolver,
             @Value("${app.cors.allowed-origins}") String[] corsAllowedOrigins,
             @Value("${app.cors.max-age}") Duration corsMaxAge
     ) {
@@ -34,7 +31,6 @@ public class WebConfig implements WebMvcConfigurer {
             throw new IllegalStateException("app.cors.allowed-origins 가 비어 있습니다.");
         }
         this.loginUserIdArgumentResolver = loginUserIdArgumentResolver;
-        this.providerArgumentResolver = providerArgumentResolver;
         this.corsAllowedOrigins = corsAllowedOrigins;
         this.corsMaxAge = corsMaxAge;
     }
@@ -65,6 +61,5 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
         resolvers.add(loginUserIdArgumentResolver);
-        resolvers.add(providerArgumentResolver);
     }
 }

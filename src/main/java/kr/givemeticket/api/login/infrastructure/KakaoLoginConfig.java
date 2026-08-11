@@ -3,6 +3,7 @@ package kr.givemeticket.api.login.infrastructure;
 import kr.givemeticket.api.login.domain.IdTokenVerifier;
 import kr.givemeticket.api.login.domain.LoginClient;
 import kr.givemeticket.api.login.domain.OidcPublicKeyProvider;
+import kr.givemeticket.api.login.domain.Provider;
 import org.springframework.boot.web.client.ClientHttpRequestFactories;
 import org.springframework.boot.web.client.ClientHttpRequestFactorySettings;
 import org.springframework.context.annotation.Bean;
@@ -23,8 +24,8 @@ public class KakaoLoginConfig {
     public IdTokenVerifier kakaoIdTokenVerifier(OidcPublicKeyProvider kakaoOidcPublicKeyProvider,
                                                 KakaoLoginProperties properties) {
         // 카카오는 앱의 REST API 키를 그대로 ID 토큰의 aud 로 넣어준다.
-        return new IdTokenVerifier(kakaoOidcPublicKeyProvider, properties.issuer(),
-                properties.restApiKey());
+        return new IdTokenVerifier(kakaoOidcPublicKeyProvider, Provider.KAKAO,
+                properties.issuer(), properties.restApiKey());
     }
 
     @Bean

@@ -5,6 +5,7 @@ import kr.givemeticket.api.login.domain.LoginClient;
 import kr.givemeticket.api.login.domain.LoginException;
 import kr.givemeticket.api.login.domain.LoginProviderException;
 import kr.givemeticket.api.login.domain.Provider;
+import kr.givemeticket.api.login.domain.ProviderPrincipal;
 import kr.givemeticket.api.login.infrastructure.dto.NaverProfileResponse;
 import kr.givemeticket.api.login.infrastructure.dto.NaverTokenResponse;
 import lombok.RequiredArgsConstructor;
@@ -42,10 +43,10 @@ public class NaverLoginClient implements LoginClient {
     }
 
     @Override
-    public String fetchProviderId(AuthCodeCommand command) {
+    public ProviderPrincipal fetchPrincipal(AuthCodeCommand command) {
         String accessToken = requestAccessToken(command);
 
-        return fetchProfileId(accessToken);
+        return fetchProfile(accessToken);
     }
 
     private String requestAccessToken(AuthCodeCommand command) {
@@ -92,7 +93,7 @@ public class NaverLoginClient implements LoginClient {
     /**
      * 방금 발급받은 토큰으로 부르는 것이라 여기서의 실패는 사용자 잘못이 아니다. 전부 외부 오류로 본다.
      */
-    private String fetchProfileId(String accessToken) {
+    private ProviderPrincipal fetchProfile(String accessToken) {
         try {
             NaverProfileResponse response = apiRestClient.get()
                     .uri(PROFILE_PATH)
@@ -103,7 +104,10 @@ public class NaverLoginClient implements LoginClient {
             if (response == null || !response.isSuccess()) {
                 throw LoginProviderException.profileRequestFailed();
             }
-            return response.response().id();
+
+            NaverProfileResponse.Profile profile = response.response();
+            return new ProviderPrincipal(
+                    profile.id(), Provider.NAVER, profile.nickname(), profile.profileImage());
 
         } catch (RestClientException e) {
             throw LoginProviderException.profileRequestFailed();

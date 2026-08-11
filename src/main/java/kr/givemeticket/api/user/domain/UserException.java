@@ -17,8 +17,4 @@ public class UserException extends BusinessException {
                 "가입되지 않은 계정입니다. 회원가입을 먼저 진행해 주세요.");
     }
 
-    public static UserException alreadyRegistered() {
-        return new UserException(HttpStatus.CONFLICT, "USER_ALREADY_REGISTERED",
-                "이미 가입된 계정입니다. 로그인해 주세요.");
-    }
 }
