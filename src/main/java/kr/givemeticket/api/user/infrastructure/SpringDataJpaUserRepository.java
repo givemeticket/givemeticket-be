@@ -9,5 +9,4 @@ public interface SpringDataJpaUserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByProviderIdAndProvider(String providerId, Provider provider);
 
-    boolean existsByProviderIdAndProvider(String providerId, Provider provider);
 }

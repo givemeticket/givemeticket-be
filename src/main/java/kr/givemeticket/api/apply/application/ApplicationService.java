@@ -167,6 +167,41 @@ public class ApplicationService {
     }
 
     /**
+     * 회원 탈퇴로 본인의 남은 신청을 일괄 취소한다.
+     *
+     * <p>캠페인 삭제와 달리 행사는 그대로 살아 있다. 비운 자리는 다른 사람이 쓸 수 있어야 하므로
+     * 재고를 반드시 되돌린다.
+     *
+     * @return 실제로 취소된 신청 수
+     */
+    public int cancelAllByUserWithdrawal(Long userId) {
+        List<Application> targets = applicationRepository
+                .findAllByUserIdAndStatusIn(userId, ApplicationStatus.active());
+
+        int cancelled = 0;
+        for (Application application : targets) {
+            Campaign campaign = campaignRepository.findById(application.getCampaignId()).orElse(null);
+            if (campaign == null) {
+                continue;
+            }
+
+            // 그 사이 사용자가 직접 취소했거나 sweeper 가 만료시켰으면 0행이다. 환불도 보내면 안 된다.
+            if (applicationPersister.cancelByUserWithdrawal(application.getId()) == 0) {
+                continue;
+            }
+            cancelled++;
+
+            stockRepository.restore(application.getCampaignId(), campaign.getTotalStock());
+            refundIfCharged(application, campaign);
+        }
+
+        if (cancelled > 0) {
+            log.info("applications cancelled by user withdrawal: userId={}, count={}", userId, cancelled);
+        }
+        return cancelled;
+    }
+
+    /**
      * 결제 요청이 실제로 나간 건만 환불한다.
      * PENDING 은 대부분 결제 전이고, 여기에 취소를 보내면 PG 가 모르는 거래를 취소하려 드는 꼴이 된다.
      */
@@ -178,8 +213,8 @@ public class ApplicationService {
         }
 
         if (!paymentClient.cancel(application.getPaymentKey())) {
-            // 취소는 되돌리지 않는다. 행사는 이미 사라졌고 환불은 뒤에서 다시 시도할 문제다.
-            log.error("refund failed on campaign deletion, retry needed: "
+            // 취소는 되돌리지 않는다. 사용자 입장의 정리는 이미 끝났고 환불은 뒤에서 다시 시도할 문제다.
+            log.error("refund failed on bulk cancellation, retry needed: "
                             + "applicationId={}, campaignId={}, paymentKey={}",
                     application.getId(), campaign.getId(), application.getPaymentKey());
         }

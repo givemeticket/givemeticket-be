@@ -5,9 +5,9 @@ import kr.givemeticket.api.login.domain.Provider;
 
 public interface UserRepository {
 
-    Optional<User> findByProviderIdAndProvider(String providerId, Provider provider);
+    Optional<User> findById(Long userId);
 
-    boolean existsByProviderIdAndProvider(String providerId, Provider provider);
+    Optional<User> findByProviderIdAndProvider(String providerId, Provider provider);
 
     User save(User user);
 }

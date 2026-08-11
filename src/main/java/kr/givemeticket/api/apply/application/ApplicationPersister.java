@@ -64,7 +64,14 @@ public class ApplicationPersister {
 
     @Transactional
     public int cancelByCampaignDeletion(Long applicationId) {
-        return applicationRepository.cancelByCampaignDeletion(applicationId, ApplicationStatus.active());
+        return applicationRepository.cancelWithReason(
+                applicationId, ApplicationStatus.active(), FailureReason.CAMPAIGN_DELETED);
+    }
+
+    @Transactional
+    public int cancelByUserWithdrawal(Long applicationId) {
+        return applicationRepository.cancelWithReason(
+                applicationId, ApplicationStatus.active(), FailureReason.USER_WITHDRAWN);
     }
 
     private Application findReusable(Long campaignId, Long userId) {

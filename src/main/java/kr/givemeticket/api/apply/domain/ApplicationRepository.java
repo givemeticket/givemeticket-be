@@ -40,8 +40,7 @@ public interface ApplicationRepository {
     int cancelIfConfirmed(Long applicationId);
 
     /**
-     * 캠페인 삭제로 인한 취소. 주어진 상태 중 하나일 때만 전이하며
-     * 실패 이유로 {@link FailureReason#CAMPAIGN_DELETED} 를 남긴다.
+     * 사용자가 직접 누르지 않은 취소. 주어진 상태 중 하나일 때만 전이하며 이유를 함께 남긴다.
      */
-    int cancelByCampaignDeletion(Long applicationId, Collection<ApplicationStatus> statuses);
+    int cancelWithReason(Long applicationId, Collection<ApplicationStatus> statuses, FailureReason reason);
 }

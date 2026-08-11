@@ -94,8 +94,9 @@ public interface SpringDataJpaApplicationRepository extends JpaRepository<Applic
     int cancelIfConfirmed(@Param("id") Long id, @Param("now") LocalDateTime now);
 
     /**
-     * 캠페인 삭제로 인한 일괄 취소. 사용자 취소와 달리 결제 전(PENDING)이나
-     * 정산 대기(UNKNOWN / MANUAL_REVIEW)도 대상이라 상태 조건을 넓게 받는다.
+     * 캠페인 삭제나 회원 탈퇴처럼 사용자가 직접 누르지 않은 일괄 취소.
+     * 결제 전(PENDING)이나 정산 대기(UNKNOWN / MANUAL_REVIEW)도 대상이라 상태 조건을 넓게 받고,
+     * 왜 취소됐는지는 reason 으로 남긴다.
      *
      * <p>그 사이 사용자가 직접 취소했거나 sweeper 가 만료시켰으면 0행이 바뀐다.
      */
@@ -103,14 +104,15 @@ public interface SpringDataJpaApplicationRepository extends JpaRepository<Applic
     @Query("""
             UPDATE Application a
                SET a.status = kr.givemeticket.api.apply.domain.ApplicationStatus.CANCELLED,
-                   a.failureReason = kr.givemeticket.api.apply.domain.FailureReason.CAMPAIGN_DELETED,
+                   a.failureReason = :reason,
                    a.expiresAt = null,
                    a.updatedAt = :now
              WHERE a.id = :id
                AND a.status IN :statuses
             """)
-    int cancelByCampaignDeletion(
+    int cancelWithReason(
             @Param("id") Long id,
             @Param("statuses") Collection<ApplicationStatus> statuses,
+            @Param("reason") FailureReason reason,
             @Param("now") LocalDateTime now);
 }
