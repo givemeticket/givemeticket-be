@@ -1,6 +1,7 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Counter } from 'k6/metrics';
+import { authHeaders, jsonAuthHeaders } from './lib/auth.js';
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:18080';
 const STOCK = Number(__ENV.STOCK || 100);
@@ -11,7 +12,8 @@ const MAX_VUS = Number(__ENV.MAX_VUS || 2000);
 // 기본은 결제 없는 캠페인이다. 재고 경합만 남겨서 오버셀 여부를 깨끗하게 본다.
 const REQUIRES_PAYMENT = __ENV.REQUIRES_PAYMENT === 'true';
 const API = `${BASE_URL}/api/v1`;
-const OWNER = { 'Content-Type': 'application/json', 'X-User-Id': '1' };
+const OWNER_ID = 1;
+const OWNER = jsonAuthHeaders(OWNER_ID);
 
 http.setResponseCallback(http.expectedStatuses(200, 201, 202, 409));
 
@@ -67,7 +69,7 @@ export function setup() {
 export default function (data) {
   const userId = __VU * 1000000 + __ITER;
   const res = http.post(`${API}/campaigns/${data.campaignId}/apply`, null, {
-    headers: { 'X-User-Id': String(userId) },
+    headers: authHeaders(userId),
   });
 
   if (res.status === 201) created.add(1);

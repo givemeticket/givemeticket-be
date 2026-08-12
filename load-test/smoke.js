@@ -1,10 +1,12 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
+import { authHeaders, jsonAuthHeaders } from './lib/auth.js';
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:18080';
 const API = `${BASE_URL}/api/v1`;
-const OWNER = { 'Content-Type': 'application/json', 'X-User-Id': '1' };
-const USER = { 'X-User-Id': '2' };
+const OWNER_ID = 1;
+const OWNER = jsonAuthHeaders(OWNER_ID);
+const USER = authHeaders(2);
 
 export const options = {
   vus: 1,
@@ -137,7 +139,7 @@ export default function () {
     '중복 취소 409': (r) => r.status === 409,
   });
   check(http.post(`${API}/applications/${paidApplicationId}/cancel`, null, {
-    headers: { 'X-User-Id': '999' },
+    headers: authHeaders(999),
   }), { '남의 신청 취소 403': (r) => r.status === 403 });
 
   check(http.post(`${API}/applications/${paidApplicationId}/cancel`, null, { headers: USER }), {
