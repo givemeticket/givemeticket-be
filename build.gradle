@@ -52,3 +52,30 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+/**
+ * 카카오 인증 서버에 실제로 요청을 쏘는 수동 진단용. 일반 test 에서는 돌지 않는다.
+ */
+tasks.register('kakaoLogin', Test) {
+    group = 'verification'
+    description = '카카오 로그인을 실제 API 로 끝까지 태워 본다'
+
+    useJUnitPlatform()
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    filter {
+        includeTestsMatching 'kr.givemeticket.api.login.infrastructure.KakaoLoginManualTest'
+    }
+
+    systemProperty 'kakao.manual', 'true'
+    if (project.hasProperty('code')) {
+        systemProperty 'kakao.code', project.property('code')
+    }
+
+    // 브라우저 로그인을 기다리는 동안 진행 상황이 보여야 한다.
+    testLogging {
+        showStandardStreams = true
+        exceptionFormat = 'full'
+    }
+    outputs.upToDateWhen { false }
+}

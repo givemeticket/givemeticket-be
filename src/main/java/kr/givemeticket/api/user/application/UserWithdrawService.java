@@ -45,6 +45,8 @@ public class UserWithdrawService {
 
         userPersister.withdraw(userId);
 
+
+
         log.info("user withdrawn: userId={}, deletedCampaigns={}, cancelledApplications={}",
                 userId, deletedCampaigns, cancelledApplications);
     }
