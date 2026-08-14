@@ -1,14 +1,18 @@
 package kr.givemeticket.api.campaign.ui.dto.response;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignResponse;
 import kr.givemeticket.api.campaign.domain.CampaignStatus;
+import kr.givemeticket.api.global.time.Utc;
 
+/**
+ * @param openAt UTC. 프론트가 로컬 시각으로 그릴 수 있도록 Z를 붙여 내려간다
+ */
 public record PatchCampaignResponse(
         Long id,
         String shortCode,
         int totalStock,
-        LocalDateTime openAt,
+        Instant openAt,
         CampaignStatus status,
         CampaignDetailResponsePart detail
 ) {
@@ -18,7 +22,7 @@ public record PatchCampaignResponse(
                 response.id(),
                 response.shortCode(),
                 response.totalStock(),
-                response.openAt(),
+                Utc.toInstant(response.openAt()),
                 response.status(),
                 CampaignDetailResponsePart.from(response.detail())
         );
