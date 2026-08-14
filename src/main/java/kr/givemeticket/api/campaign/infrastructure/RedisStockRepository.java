@@ -1,9 +1,6 @@
 package kr.givemeticket.api.campaign.infrastructure;
 
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import kr.givemeticket.api.campaign.domain.StockDecreaseResult;
 import kr.givemeticket.api.campaign.domain.StockRepository;
 import lombok.RequiredArgsConstructor;
@@ -56,23 +53,6 @@ public class RedisStockRepository implements StockRepository {
     public Long getRemaining(Long campaignId) {
         String value = stringRedisTemplate.opsForValue().get(key(campaignId));
         return (value == null) ? null : Long.parseLong(value);
-    }
-
-    @Override
-    public Map<Long, Long> getRemaining(Collection<Long> campaignIds) {
-        if (campaignIds.isEmpty()) {
-            return Map.of();
-        }
-        List<Long> ids = List.copyOf(campaignIds);
-        List<String> values = stringRedisTemplate.opsForValue()
-                .multiGet(ids.stream().map(this::key).toList());
-
-        Map<Long, Long> remaining = new HashMap<>();
-        for (int i = 0; i < ids.size(); i++) {
-            String value = (values == null) ? null : values.get(i);
-            remaining.put(ids.get(i), (value == null) ? null : Long.parseLong(value));
-        }
-        return remaining;
     }
 
     @Override

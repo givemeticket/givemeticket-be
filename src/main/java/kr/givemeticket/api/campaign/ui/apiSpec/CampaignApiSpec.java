@@ -9,6 +9,7 @@ import kr.givemeticket.api.campaign.ui.dto.request.PatchCampaignRequest;
 import kr.givemeticket.api.campaign.ui.dto.request.PostCampaignRequest;
 import kr.givemeticket.api.campaign.ui.dto.response.CreateCampaignResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignResponse;
+import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignStockResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignsResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.PatchCampaignResponse;
 import kr.givemeticket.api.global.auth.annotation.LoginUserId;
@@ -34,16 +35,27 @@ public interface CampaignApiSpec {
                     + "viewerRole이 GUEST / VIEWER / PARTICIPANT / OWNER로 내려갑니다. "
                     + "토큰을 보냈는데 유효하지 않으면 401입니다. "
                     + "행사 안내 정보는 detail에 담기며 등록된 게 없으면 null입니다. "
-                    + "삭제된 캠페인은 410을 반환합니다.")
+                    + "삭제된 캠페인은 410을 반환합니다. "
+                    + "잔여 재고와 매진 여부는 여기 없고 GET /campaigns/{campaignId}/stock 에서 받습니다.")
     ResponseEntity<GetCampaignResponse> readCampaign(
             @Parameter(hidden = true) @LoginUserId(required = false) Long userId,
             @Parameter(description = "공유 링크 코드", example = "3AbCdEfGh1")
             @PathVariable("shortCode") String shortCode
     );
 
+    @Operation(summary = "잔여 재고 조회",
+            description = "잔여 재고와 매진 여부만 내려줍니다. 상세·목록 조회보다 훨씬 자주 폴링되는 값이라 "
+                    + "별도 API로 분리했고, DB를 거치지 않고 Redis만 읽습니다. "
+                    + "인증은 필요 없습니다. 없거나 삭제된 캠페인은 404입니다.")
+    ResponseEntity<GetCampaignStockResponse> readCampaignStock(
+            @Parameter(description = "캠페인 ID", example = "1")
+            @PathVariable("campaignId") Long campaignId
+    );
+
     @Operation(summary = "캠페인 목록 조회",
             description = "owned는 내가 만든 행사, participated는 내가 참여중인 행사(나의 티켓)입니다. "
-                    + "목록에는 카드에 필요한 eventAt/location/imageUrl만 펼쳐지고 본문은 상세 조회에서만 내려갑니다.")
+                    + "목록에는 카드에 필요한 eventAt/location/imageUrl만 펼쳐지고 본문은 상세 조회에서만 내려갑니다. "
+                    + "잔여 재고와 매진 여부는 여기 없고 GET /campaigns/{campaignId}/stock 에서 받습니다.")
     ResponseEntity<GetCampaignsResponse> readCampaigns(
             @Parameter(hidden = true) @LoginUserId Long userId,
             @Parameter(description = "조회 범위", example = "owned",

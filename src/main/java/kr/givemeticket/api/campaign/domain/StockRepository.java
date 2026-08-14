@@ -1,8 +1,5 @@
 package kr.givemeticket.api.campaign.domain;
 
-import java.util.Collection;
-import java.util.Map;
-
 public interface StockRepository {
 
     void initialize(Long campaignId, int totalStock);
@@ -20,12 +17,10 @@ public interface StockRepository {
      */
     void increaseBy(Long campaignId, int delta);
 
-    Long getRemaining(Long campaignId);
-
     /**
-     * 목록 조회용. 캠페인 수만큼 Redis를 왕복하지 않는다.
+     * 초기화된 적 없거나 삭제된 캠페인이면 null.
      */
-    Map<Long, Long> getRemaining(Collection<Long> campaignIds);
+    Long getRemaining(Long campaignId);
 
     void remove(Long campaignId);
 }

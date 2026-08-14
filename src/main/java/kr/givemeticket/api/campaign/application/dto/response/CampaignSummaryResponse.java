@@ -11,9 +11,7 @@ public record CampaignSummaryResponse(
         ApplicationStatus myApplicationStatus
 ) {
 
-    public static CampaignSummaryResponse of(
-            Campaign campaign, Long remainingStock, ApplicationStatus myApplicationStatus) {
-        return new CampaignSummaryResponse(
-                CampaignResponse.of(campaign, remainingStock), myApplicationStatus);
+    public static CampaignSummaryResponse of(Campaign campaign, ApplicationStatus myApplicationStatus) {
+        return new CampaignSummaryResponse(CampaignResponse.of(campaign), myApplicationStatus);
     }
 }
