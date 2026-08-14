@@ -12,16 +12,13 @@ public record CampaignResponse(
         String title,
         CampaignType type,
         int totalStock,
-        long remainingStock,
         LocalDateTime openAt,
         boolean requiresPayment,
         CampaignStatus status,
-        boolean soldOut,
         CampaignDetailInfo detail
 ) {
 
-    public static CampaignResponse of(Campaign campaign, Long remainingStock) {
-        long remaining = (remainingStock == null) ? campaign.getTotalStock() : remainingStock;
+    public static CampaignResponse of(Campaign campaign) {
         return new CampaignResponse(
                 campaign.getId(),
                 campaign.getOwnerId(),
@@ -29,11 +26,9 @@ public record CampaignResponse(
                 campaign.getTitle(),
                 campaign.getType(),
                 campaign.getTotalStock(),
-                remaining,
                 campaign.getOpenAt(),
                 campaign.isRequiresPayment(),
                 campaign.getStatus(),
-                remaining <= 0,
                 CampaignDetailInfo.from(campaign.getDetail())
         );
     }

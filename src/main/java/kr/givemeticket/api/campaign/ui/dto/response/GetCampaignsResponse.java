@@ -12,6 +12,7 @@ public record GetCampaignsResponse(List<CampaignItem> campaigns) {
 
     /**
      * 목록 카드에 필요한 것만 편다. 본문(content)은 길어서 상세 조회에서만 내려간다.
+     * 잔여 재고와 매진 여부는 {@code GET /campaigns/{campaignId}/stock} 으로 분리했다.
      *
      * @param myApplicationStatus scope=participated 일 때만 채워진다
      */
@@ -21,11 +22,9 @@ public record GetCampaignsResponse(List<CampaignItem> campaigns) {
             String shortCode,
             String title,
             int totalStock,
-            long remainingStock,
             LocalDateTime openAt,
             boolean requiresPayment,
             CampaignStatus status,
-            boolean soldOut,
             LocalDateTime eventAt,
             String location,
             String imageUrl,
@@ -41,11 +40,9 @@ public record GetCampaignsResponse(List<CampaignItem> campaigns) {
                     campaign.shortCode(),
                     campaign.title(),
                     campaign.totalStock(),
-                    campaign.remainingStock(),
                     campaign.openAt(),
                     campaign.requiresPayment(),
                     campaign.status(),
-                    campaign.soldOut(),
                     (detail == null) ? null : detail.eventAt(),
                     (detail == null) ? null : detail.location(),
                     (detail == null) ? null : detail.imageUrl(),

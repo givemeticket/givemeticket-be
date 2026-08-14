@@ -35,13 +35,12 @@ public record CampaignDetailResponse(
 
     public static CampaignDetailResponse of(
             Campaign campaign,
-            Long remainingStock,
             ViewerRole viewerRole,
             Application myApplication,
             Long confirmedCount
     ) {
         return new CampaignDetailResponse(
-                CampaignResponse.of(campaign, remainingStock),
+                CampaignResponse.of(campaign),
                 viewerRole,
                 (myApplication == null) ? null : MyApplication.from(myApplication),
                 confirmedCount

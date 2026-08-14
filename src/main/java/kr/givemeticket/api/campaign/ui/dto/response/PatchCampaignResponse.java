@@ -8,10 +8,8 @@ public record PatchCampaignResponse(
         Long id,
         String shortCode,
         int totalStock,
-        long remainingStock,
         LocalDateTime openAt,
         CampaignStatus status,
-        boolean soldOut,
         CampaignDetailResponsePart detail
 ) {
 
@@ -20,10 +18,8 @@ public record PatchCampaignResponse(
                 response.id(),
                 response.shortCode(),
                 response.totalStock(),
-                response.remainingStock(),
                 response.openAt(),
                 response.status(),
-                response.soldOut(),
                 CampaignDetailResponsePart.from(response.detail())
         );
     }

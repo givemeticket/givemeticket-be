@@ -8,7 +8,8 @@ import kr.givemeticket.api.campaign.domain.CampaignType;
 import kr.givemeticket.api.campaign.domain.ViewerRole;
 
 /**
- * @param soldOut        잔여 재고 0. 저장된 상태가 아니라 조회 시점의 파생값이다
+ * 잔여 재고와 매진 여부는 폴링 주기가 달라 {@code GET /campaigns/{campaignId}/stock} 으로 분리했다.
+ *
  * @param viewerRole     화면을 어떤 모습으로 그릴지 결정한다
  * @param myApplication  내 신청 내역. 없으면 null
  * @param confirmedCount 확정 신청 수. OWNER에게만 내려간다
@@ -21,11 +22,9 @@ public record GetCampaignResponse(
         String title,
         CampaignType type,
         int totalStock,
-        long remainingStock,
         LocalDateTime openAt,
         boolean requiresPayment,
         CampaignStatus status,
-        boolean soldOut,
         ViewerRole viewerRole,
         MyApplicationResponse myApplication,
         Long confirmedCount,
@@ -41,11 +40,9 @@ public record GetCampaignResponse(
                 campaign.title(),
                 campaign.type(),
                 campaign.totalStock(),
-                campaign.remainingStock(),
                 campaign.openAt(),
                 campaign.requiresPayment(),
                 campaign.status(),
-                campaign.soldOut(),
                 response.viewerRole(),
                 MyApplicationResponse.from(response.myApplication()),
                 response.confirmedCount(),

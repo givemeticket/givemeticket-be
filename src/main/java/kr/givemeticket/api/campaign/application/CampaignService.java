@@ -13,6 +13,7 @@ import kr.givemeticket.api.campaign.application.dto.request.CampaignCreateReques
 import kr.givemeticket.api.campaign.application.dto.request.CampaignUpdateRequest;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignDetailResponse;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignResponse;
+import kr.givemeticket.api.campaign.application.dto.response.CampaignStockResponse;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignSummaryResponse;
 import kr.givemeticket.api.campaign.domain.Campaign;
 import kr.givemeticket.api.campaign.domain.CampaignRepository;
@@ -58,7 +59,21 @@ public class CampaignService {
 
         stockRepository.initialize(saved.getId(), saved.getTotalStock());
 
-        return CampaignResponse.of(saved, (long) saved.getTotalStock());
+        return CampaignResponse.of(saved);
+    }
+
+    /**
+     * 재고만 따로 내려준다. 상세·목록보다 훨씬 자주 폴링되므로 DB를 거치지 않고 Redis만 읽는다.
+     *
+     * <p>재고 키는 생성 시 만들어져 삭제 시에만 지워진다. 키가 없으면 없거나 삭제된 캠페인이라
+     * 404로 끊는다. 삭제 여부를 410으로 구분하려면 DB를 봐야 하는데, 그러면 분리한 의미가 없다.
+     */
+    public CampaignStockResponse getStock(Long campaignId) {
+        Long remaining = stockRepository.getRemaining(campaignId);
+        if (remaining == null) {
+            throw CampaignApplicationException.campaignNotFound();
+        }
+        return CampaignStockResponse.of(campaignId, remaining);
     }
 
     @Transactional(readOnly = true)
@@ -69,10 +84,8 @@ public class CampaignService {
             throw CampaignApplicationException.campaignDeleted();
         }
 
-        Long remaining = stockRepository.getRemaining(campaign.getId());
-
         if (userId == null) {
-            return CampaignDetailResponse.of(campaign, remaining, ViewerRole.GUEST, null, null);
+            return CampaignDetailResponse.of(campaign, ViewerRole.GUEST, null, null);
         }
 
         Application mine = applicationRepository
@@ -82,21 +95,17 @@ public class CampaignService {
         if (campaign.isOwnedBy(userId)) {
             long confirmedCount = applicationRepository
                     .countByCampaignIdAndStatusIn(campaign.getId(), CONFIRMED_ONLY);
-            return CampaignDetailResponse.of(campaign, remaining, ViewerRole.OWNER, mine, confirmedCount);
+            return CampaignDetailResponse.of(campaign, ViewerRole.OWNER, mine, confirmedCount);
         }
 
         ViewerRole role = (mine != null && mine.isActive()) ? ViewerRole.PARTICIPANT : ViewerRole.VIEWER;
-        return CampaignDetailResponse.of(campaign, remaining, role, mine, null);
+        return CampaignDetailResponse.of(campaign, role, mine, null);
     }
 
     @Transactional(readOnly = true)
     public List<CampaignSummaryResponse> getOwnedCampaigns(Long ownerId) {
-        List<Campaign> campaigns = campaignRepository.findAllOwnedBy(ownerId);
-        Map<Long, Long> remaining = stockRepository.getRemaining(idsOf(campaigns));
-
-        return campaigns.stream()
-                .map(campaign -> CampaignSummaryResponse.of(
-                        campaign, remaining.get(campaign.getId()), null))
+        return campaignRepository.findAllOwnedBy(ownerId).stream()
+                .map(campaign -> CampaignSummaryResponse.of(campaign, null))
                 .toList();
     }
 
@@ -106,14 +115,9 @@ public class CampaignService {
                 .findAllByUserIdAndStatusIn(userId, ApplicationStatus.active()).stream()
                 .collect(Collectors.toMap(Application::getCampaignId, Application::getStatus));
 
-        List<Campaign> campaigns = campaignRepository.findAllByIdIn(statusByCampaign.keySet());
-        Map<Long, Long> remaining = stockRepository.getRemaining(idsOf(campaigns));
-
-        return campaigns.stream()
+        return campaignRepository.findAllByIdIn(statusByCampaign.keySet()).stream()
                 .map(campaign -> CampaignSummaryResponse.of(
-                        campaign,
-                        remaining.get(campaign.getId()),
-                        statusByCampaign.get(campaign.getId())))
+                        campaign, statusByCampaign.get(campaign.getId())))
                 .toList();
     }
 
@@ -150,7 +154,7 @@ public class CampaignService {
             campaign.changeDetail(request.detail().toCampaignDetail());
         }
 
-        return CampaignResponse.of(campaign, stockRepository.getRemaining(campaignId));
+        return CampaignResponse.of(campaign);
     }
 
     /**
@@ -198,9 +202,5 @@ public class CampaignService {
             log.warn("short code collision: candidate={}, attempt={}", candidate, attempt + 1);
         }
         throw CampaignApplicationException.shortCodeGenerationFailed();
-    }
-
-    private List<Long> idsOf(List<Campaign> campaigns) {
-        return campaigns.stream().map(Campaign::getId).toList();
     }
 }
