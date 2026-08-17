@@ -1,0 +1,350 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "time": { "from": "now-15m", "to": "now" },
+  "refresh": "5s",
+  "title": "GiveMeTicket — JVM/GC 메모리",
+  "uid": "givemeticket-jvm",
+  "schemaVersion": 39,
+  "version": 1,
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "최대 힙 (Xmx)",
+      "description": "jvm_gc_max_data_size_bytes 는 old 영역의 최대치이자 사실상 -Xmx 값이다. area=heap 의 max 를 그냥 더하면 G1 Eden 처럼 max 가 -1 인 풀이 섞여 값이 망가진다.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "none", "graphMode": "none", "textMode": "auto"
+      },
+      "targets": [
+        { "refId": "A", "expr": "jvm_gc_max_data_size_bytes{job=\"givemeticket-backend\"}" }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "커밋된 힙",
+      "description": "JVM 이 OS 에서 실제로 받아 둔 힙. 최대 힙보다 작을 수 있고, 부하가 빠지면 G1 이 다시 반납해서 줄어든다.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "none", "graphMode": "area", "textMode": "auto"
+      },
+      "targets": [
+        { "refId": "A", "expr": "sum(jvm_memory_committed_bytes{job=\"givemeticket-backend\", area=\"heap\"})" }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "GC 오버헤드",
+      "description": "GC 가 잡아먹은 CPU 시간의 비율. 수 % 를 넘어가기 시작하면 힙이 모자라거나 할당이 과하다는 뜻이다.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit", "min": 0, "max": 1,
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 0.05 },
+            { "color": "red", "value": 0.15 }
+          ]}
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value", "graphMode": "area", "textMode": "auto"
+      },
+      "targets": [
+        { "refId": "A", "expr": "jvm_gc_overhead{job=\"givemeticket-backend\"}" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "GC 횟수 (선택 구간)",
+      "description": "대시보드 시간 범위 전체에서 일어난 GC 횟수. 설정을 바꿔 가며 비교할 때 이 숫자를 적어 둔다.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "short", "decimals": 0 }, "overrides": [] },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "none", "graphMode": "none", "textMode": "auto"
+      },
+      "targets": [
+        { "refId": "A", "expr": "sum(increase(jvm_gc_pause_seconds_count{job=\"givemeticket-backend\"}[$__range]))" }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "총 정지 시간 (선택 구간)",
+      "description": "같은 구간에서 애플리케이션 스레드가 GC 때문에 멈춰 있던 시간의 합.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "none", "graphMode": "none", "textMode": "auto"
+      },
+      "targets": [
+        { "refId": "A", "expr": "sum(increase(jvm_gc_pause_seconds_sum{job=\"givemeticket-backend\"}[$__range]))" }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "GC 직후 old 사용률",
+      "description": "GC 를 끝낸 직후에도 남아 있는 old 영역 비율. 부하가 끝났는데 계속 올라가면 누수를 의심한다.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit", "min": 0, "max": 1,
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 0.7 },
+            { "color": "red", "value": 0.9 }
+          ]}
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value", "graphMode": "area", "textMode": "auto"
+      },
+      "targets": [
+        { "refId": "A", "expr": "max(jvm_memory_usage_after_gc{job=\"givemeticket-backend\"})" }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "힙 사용량 / 커밋 / 최대",
+      "description": "used 가 톱니 모양으로 오르내리는 폭이 young GC 한 번이 회수하는 양이다. used 의 바닥선이 계속 올라가면 old 에 쌓이고 있다는 뜻.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "fieldConfig": {
+        "defaults": { "unit": "bytes", "custom": { "fillOpacity": 10 } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "max(Xmx)" },
+            "properties": [{ "id": "custom.fillOpacity", "value": 0 }, { "id": "custom.lineStyle", "value": { "dash": [10, 10], "fill": "dash" } }] }
+        ]
+      },
+      "targets": [
+        { "refId": "A", "expr": "sum(jvm_memory_used_bytes{job=\"givemeticket-backend\", area=\"heap\"})", "legendFormat": "used" },
+        { "refId": "B", "expr": "sum(jvm_memory_committed_bytes{job=\"givemeticket-backend\", area=\"heap\"})", "legendFormat": "committed" },
+        { "refId": "C", "expr": "jvm_gc_max_data_size_bytes{job=\"givemeticket-backend\"}", "legendFormat": "max(Xmx)" }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "힙 영역별 사용량 (Eden / Survivor / Old)",
+      "description": "Eden 이 차오르는 기울기가 곧 할당 속도다. Eden 이 바닥으로 떨어지는 순간이 young GC, Old 가 한 번에 크게 떨어지면 mixed/full GC 다.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "fillOpacity": 20, "stacking": { "mode": "none" } } }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "jvm_memory_used_bytes{job=\"givemeticket-backend\", area=\"heap\"}", "legendFormat": "{{id}}" }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "GC 발생 횟수 (회/분)",
+      "description": "cause 를 같이 본다. Allocation Failure/G1 Evacuation Pause 는 정상적인 young GC, Metadata GC Threshold 나 G1 Humongous Allocation 이 잦으면 원인이 따로 있다.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 60, "stacking": { "mode": "normal" } } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(jvm_gc_pause_seconds_count{job=\"givemeticket-backend\"}[1m])) by (action, cause) * 60",
+          "legendFormat": "{{action}} / {{cause}}"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "GC 정지 시간 (초/분)",
+      "description": "1분마다 GC 로 멈춘 시간의 합. 0.6 이면 그 1분 중 1% 를 멈춰 있었다는 뜻이라 p99 지연에 그대로 드러난다.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "bars", "fillOpacity": 60, "stacking": { "mode": "normal" } } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(jvm_gc_pause_seconds_sum{job=\"givemeticket-backend\"}[1m])) by (action, cause) * 60",
+          "legendFormat": "{{action}} / {{cause}}"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "GC 한 번의 정지 시간 (최대 / 평균, 초)",
+      "description": "힙을 키우면 GC 횟수는 줄지만 한 번의 정지는 길어진다. 이 패널과 왼쪽 '발생 횟수'를 세트로 봐야 트레이드오프가 보인다.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max_over_time(jvm_gc_pause_seconds_max{job=\"givemeticket-backend\"}[1m])",
+          "legendFormat": "최대 {{action}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(jvm_gc_pause_seconds_sum{job=\"givemeticket-backend\"}[1m])) by (action) / sum(rate(jvm_gc_pause_seconds_count{job=\"givemeticket-backend\"}[1m])) by (action)",
+          "legendFormat": "평균 {{action}}"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "할당률 / 승격률 (bytes/s)",
+      "description": "할당률은 초당 새로 만든 객체의 양, 승격률은 young 에서 살아남아 old 로 넘어간 양이다. 승격률이 계속 0 보다 크면 객체가 GC 주기보다 오래 살아 있다는 뜻이고, 결국 old 가 차서 mixed/full GC 를 부른다.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "fieldConfig": { "defaults": { "unit": "Bps", "custom": { "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "rate(jvm_gc_memory_allocated_bytes_total{job=\"givemeticket-backend\"}[1m])", "legendFormat": "할당률" },
+        { "refId": "B", "expr": "rate(jvm_gc_memory_promoted_bytes_total{job=\"givemeticket-backend\"}[1m])", "legendFormat": "승격률" }
+      ]
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "GC 후 살아남은 데이터 (live data size)",
+      "description": "GC 를 돌리고도 남은 long-lived 데이터의 크기. 부하가 끝난 뒤 원래 수준으로 돌아오면 정상, 계단식으로 올라가면 누수다.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
+      "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "jvm_gc_live_data_size_bytes{job=\"givemeticket-backend\"}", "legendFormat": "live data" },
+        { "refId": "B", "expr": "jvm_gc_max_data_size_bytes{job=\"givemeticket-backend\"}", "legendFormat": "max data" }
+      ]
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "힙 밖 메모리 (Metaspace, 코드 캐시 등)",
+      "description": "컨테이너 메모리 한도는 힙 + 이쪽 + 스레드 스택을 모두 합친 값과 겨룬다. 힙만 키우다 OOMKilled 가 나면 여기를 확인한다.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "jvm_memory_used_bytes{job=\"givemeticket-backend\", area=\"nonheap\"}", "legendFormat": "{{id}}" }
+      ]
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "HTTP 지연 p95 / p99 (초)",
+      "description": "GC 정지 패널과 시간축을 맞춰 놓았다. 정지가 튄 순간 p99 가 같이 튀는지 보는 것이 이 대시보드의 핵심이다.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 36 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{job=\"givemeticket-backend\"}[1m])) by (le))", "legendFormat": "p95" },
+        { "refId": "B", "expr": "histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{job=\"givemeticket-backend\"}[1m])) by (le))", "legendFormat": "p99" }
+      ]
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "처리량 (req/s) 과 CPU",
+      "description": "같은 처리량에서 비교해야 GC 설정 비교가 의미가 있다. 처리량이 다르면 할당량이 달라져 GC 횟수도 자동으로 달라진다.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 36 },
+      "fieldConfig": {
+        "defaults": { "unit": "reqps" },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "CPU" },
+            "properties": [{ "id": "unit", "value": "percentunit" }, { "id": "custom.axisPlacement", "value": "right" }] }
+        ]
+      },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(http_server_requests_seconds_count{job=\"givemeticket-backend\"}[1m]))", "legendFormat": "req/s" },
+        { "refId": "B", "expr": "process_cpu_usage{job=\"givemeticket-backend\"}", "legendFormat": "CPU" }
+      ]
+    },
+    {
+      "id": 30,
+      "type": "timeseries",
+      "title": "캐시 히트율",
+      "description": "캐시가 실제로 먹히고 있는지. 이게 낮으면 뒤의 GC·지연 변화는 캐시 덕분이 아니다. 무효화가 잦거나 TTL 이 짧으면 여기가 먼저 떨어진다.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 44 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(campaign_cache_requests_total{job=\"givemeticket-backend\", result=\"hit\"}[1m])) / sum(rate(campaign_cache_requests_total{job=\"givemeticket-backend\"}[1m]))",
+          "legendFormat": "hit rate"
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "캐시 값 크기 (평균, 압축 전/후)",
+      "description": "raw 가 JSON 원본, compressed 가 gzip 후다. 둘의 비가 압축률이고, compressed 가 Redis 와 주고받는 실제 바이트다. 값이 작으면 gzip 헤더 때문에 거의 안 줄거나 오히려 커진다.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 44 },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(campaign_cache_value_size_bytes_sum{job=\"givemeticket-backend\"}[5m])) by (state) / sum(rate(campaign_cache_value_size_bytes_count{job=\"givemeticket-backend\"}[5m])) by (state)",
+          "legendFormat": "{{state}}"
+        }
+      ]
+    },
+    {
+      "id": 32,
+      "type": "timeseries",
+      "title": "캐시 조회 시간 (Redis 왕복 + 압축 해제)",
+      "description": "Redis 는 단일 스레드다. 큰 값을 주고받는 요청이 있으면 뒤따르는 요청이 전부 그만큼 밀리므로, p99 가 평균보다 훨씬 크게 벌어지는지를 본다.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 44 },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(campaign_cache_get_seconds_sum{job=\"givemeticket-backend\"}[1m])) / sum(rate(campaign_cache_get_seconds_count{job=\"givemeticket-backend\"}[1m]))",
+          "legendFormat": "평균"
+        },
+        {
+          "refId": "B",
+          "expr": "campaign_cache_get_seconds{job=\"givemeticket-backend\", quantile=\"0.99\"}",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "logs",
+      "title": "GC 로그 (gc.log)",
+      "description": "GC 한 건당 한 줄. '35M->4M(718M) 13.064ms' 는 힙이 35M 에서 4M 로 줄었고 그때 커밋된 힙은 718M, 정지는 13ms 였다는 뜻이다.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 52 },
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending" },
+      "targets": [
+        { "refId": "A", "expr": "{service=\"givemeticket-jvm\", log_type=\"gc\"}" }
+      ]
+    }
+  ]
+}

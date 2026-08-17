@@ -19,8 +19,15 @@ docker compose up -d
 
 기본 대상은 `http://localhost:18080`. 다른 주소면 `-e BASE_URL=...`로 바꾼다.
 
-모든 스크립트는 캠페인을 만들 때 `X-User-Id: 1`을 개설자로 쓴다. 신청자는 VU마다 다른 id를
+모든 스크립트는 캠페인을 만들 때 userId 1을 개설자로 쓴다. 신청자는 VU마다 다른 id를
 쓰기 때문에 `(campaign_id, user_id)` 유니크 제약에 걸리지 않는다.
+
+API가 JWT를 요구하므로 [auth.js](auth.js)가 서버와 같은 시크릿으로 액세스 토큰을 직접 서명한다.
+`.env`의 `JWT_SECRET_KEY`가 기본값이 아니면 넘겨줘야 한다.
+
+```bash
+k6 run -e JWT_SECRET_KEY="$(grep '^JWT_SECRET_KEY=' .env | cut -d= -f2-)" load-test/smoke.js
+```
 
 ## 스크립트
 
@@ -30,6 +37,7 @@ docker compose up -d
 | `rush.js` | 오픈 스파이크 + 오버셀 검증 | `k6 run load-test/rush.js` |
 | `capacity.js` | 계단식 증가로 한계 지점 탐색 | `k6 run load-test/capacity.js` |
 | `soak.js` | 지속 혼합 부하(조회·신청) | `k6 run load-test/soak.js` |
+| `gc-matrix.sh` | 힙/GC 조합을 바꿔 가며 반복 측정 | `./load-test/gc-matrix.sh` |
 
 ### smoke.js — 기능 점검
 
@@ -95,6 +103,16 @@ mock은 멱등키별로 결제 상태를 인메모리에 들고 있다. 같은 �
 `UNKNOWN`은 실패가 아니라 "모름"이라 재고를 돌려주지 않는다. 이유와 이후 정산 설계는
 [docs/payment-flow.md](../docs/payment-flow.md) 참고. 정산 배치는 아직 미구현이라
 타임아웃을 주입한 뒤에는 `UNKNOWN` 신청이 재고를 잡은 채로 남는다.
+
+### gc-matrix.sh — 힙/GC 비교
+
+힙 크기와 GC 종류를 바꿔 가며 같은 부하를 반복하고, 구간별 GC 횟수·정지 시간·할당률·p99를 표로
+뽑는다. 실행 방법과 해석은 [docs/gc-experiment.md](../docs/gc-experiment.md)에 정리했다.
+
+```bash
+docker compose --profile obs up -d   # 프로메테우스가 떠 있어야 한다
+./load-test/gc-matrix.sh
+```
 
 ## 주요 옵션
 
