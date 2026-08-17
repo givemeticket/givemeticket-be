@@ -3,7 +3,7 @@ package kr.givemeticket.api.campaign.application.dto.response;
 import kr.givemeticket.api.apply.domain.Application;
 import kr.givemeticket.api.apply.domain.ApplicationStatus;
 import kr.givemeticket.api.apply.domain.FailureReason;
-import kr.givemeticket.api.campaign.domain.Campaign;
+import kr.givemeticket.api.campaign.domain.CampaignSnapshot;
 import kr.givemeticket.api.campaign.domain.ViewerRole;
 
 /**
@@ -34,7 +34,7 @@ public record CampaignDetailResponse(
     }
 
     public static CampaignDetailResponse of(
-            Campaign campaign,
+            CampaignSnapshot campaign,
             Long remainingStock,
             ViewerRole viewerRole,
             Application myApplication,

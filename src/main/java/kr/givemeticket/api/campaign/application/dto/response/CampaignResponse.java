@@ -2,6 +2,7 @@ package kr.givemeticket.api.campaign.application.dto.response;
 
 import java.time.LocalDateTime;
 import kr.givemeticket.api.campaign.domain.Campaign;
+import kr.givemeticket.api.campaign.domain.CampaignSnapshot;
 import kr.givemeticket.api.campaign.domain.CampaignStatus;
 import kr.givemeticket.api.campaign.domain.CampaignType;
 
@@ -21,20 +22,28 @@ public record CampaignResponse(
 ) {
 
     public static CampaignResponse of(Campaign campaign, Long remainingStock) {
-        long remaining = (remainingStock == null) ? campaign.getTotalStock() : remainingStock;
+        return of(CampaignSnapshot.from(campaign), remainingStock);
+    }
+
+    /**
+     * 캐시에서 꺼낸 값도, DB 에서 읽은 엔티티도 결국 이 한 곳을 지난다.
+     * 재고만 항상 밖에서 받는다 — 캐시에 담긴 적이 없는 값이기 때문이다.
+     */
+    public static CampaignResponse of(CampaignSnapshot campaign, Long remainingStock) {
+        long remaining = (remainingStock == null) ? campaign.totalStock() : remainingStock;
         return new CampaignResponse(
-                campaign.getId(),
-                campaign.getOwnerId(),
-                campaign.getShortCode(),
-                campaign.getTitle(),
-                campaign.getType(),
-                campaign.getTotalStock(),
+                campaign.id(),
+                campaign.ownerId(),
+                campaign.shortCode(),
+                campaign.title(),
+                campaign.type(),
+                campaign.totalStock(),
                 remaining,
-                campaign.getOpenAt(),
-                campaign.isRequiresPayment(),
-                campaign.getStatus(),
+                campaign.openAt(),
+                campaign.requiresPayment(),
+                campaign.status(),
                 remaining <= 0,
-                CampaignDetailInfo.from(campaign.getDetail())
+                CampaignDetailInfo.from(campaign.detail())
         );
     }
 }

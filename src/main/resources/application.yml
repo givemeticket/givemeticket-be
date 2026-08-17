@@ -59,6 +59,14 @@ payment:
   connect-timeout-ms: ${PAYMENT_CONNECT_TIMEOUT_MS:2000}
   read-timeout-ms: ${PAYMENT_READ_TIMEOUT_MS:3000}
 
+campaign:
+  cache:
+    # false 로 두면 NoOp 구현이 들어가 Redis 를 아예 부르지 않는다.
+    # 같은 빌드에서 캐시 있음/없음을 비교할 때 쓴다.
+    enabled: ${CAMPAIGN_CACHE_ENABLED:true}
+    # 무효화는 변경 시점마다 하지만, 놓친 무효화가 영원히 남지 않도록 만료를 둔다.
+    ttl: ${CAMPAIGN_CACHE_TTL:10m}
+
 application:
   # apply 후 confirm까지 자리를 잡아둘 수 있는 시간. 사용자가 결제창에 머무는 시간이다.
   hold-duration: ${APPLICATION_HOLD_DURATION:2m}
