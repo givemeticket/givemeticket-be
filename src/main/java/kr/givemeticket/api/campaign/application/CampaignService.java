@@ -13,6 +13,7 @@ import kr.givemeticket.api.campaign.application.dto.CampaignDetailCommand;
 import kr.givemeticket.api.campaign.application.dto.request.CampaignCreateRequest;
 import kr.givemeticket.api.campaign.application.dto.request.CampaignUpdateRequest;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignDetailResponse;
+import kr.givemeticket.api.campaign.application.dto.response.CampaignOwnerInfo;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignResponse;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignStockResponse;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignSummaryResponse;
@@ -25,6 +26,7 @@ import kr.givemeticket.api.campaign.domain.ShortCodeGenerator;
 import kr.givemeticket.api.campaign.domain.StockRepository;
 import kr.givemeticket.api.campaign.domain.ViewerRole;
 import kr.givemeticket.api.user.application.UserService;
+import kr.givemeticket.api.user.application.dto.response.UserResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -79,6 +81,10 @@ public class CampaignService {
         return CampaignStockResponse.of(campaignId, remaining);
     }
 
+    /**
+     * 첫 화면을 한 번에 그릴 수 있도록 개설자 정보와 잔여 재고까지 함께 담아 보낸다.
+     * 그 뒤의 재고 갱신은 {@link #getStock(Long)} 이 받는다.
+     */
     @Transactional(readOnly = true)
     public CampaignDetailResponse getCampaignDetail(String shortCode, Long userId) {
         Campaign campaign = campaignRepository.findByShortCode(shortCode)
@@ -87,8 +93,12 @@ public class CampaignService {
             throw CampaignApplicationException.campaignDeleted();
         }
 
+        CampaignOwnerInfo owner = findOwner(campaign.getOwnerId());
+        Long remainingStock = findRemainingStock(campaign.getId());
+
         if (userId == null) {
-            return CampaignDetailResponse.of(campaign, ViewerRole.GUEST, null, null);
+            return CampaignDetailResponse.of(
+                    campaign, owner, remainingStock, ViewerRole.GUEST, null, null);
         }
 
         Application mine = applicationRepository
@@ -98,11 +108,12 @@ public class CampaignService {
         if (campaign.isOwnedBy(userId)) {
             long confirmedCount = applicationRepository
                     .countByCampaignIdAndStatusIn(campaign.getId(), CONFIRMED_ONLY);
-            return CampaignDetailResponse.of(campaign, ViewerRole.OWNER, mine, confirmedCount);
+            return CampaignDetailResponse.of(
+                    campaign, owner, remainingStock, ViewerRole.OWNER, mine, confirmedCount);
         }
 
         ViewerRole role = (mine != null && mine.isActive()) ? ViewerRole.PARTICIPANT : ViewerRole.VIEWER;
-        return CampaignDetailResponse.of(campaign, role, mine, null);
+        return CampaignDetailResponse.of(campaign, owner, remainingStock, role, mine, null);
     }
 
     /**
@@ -124,21 +135,52 @@ public class CampaignService {
     }
 
     /**
-     * 개설자 닉네임은 캠페인마다 조회하지 않고 한 번에 모아 온다.
+     * 개설자와 재고는 캠페인마다 조회하지 않고 한 번씩 모아 온다. 카드가 30장이어도
+     * 유저 조회 1번, Redis 왕복 1번이다.
      */
     private List<CampaignSummaryResponse> toSummaries(
             List<Campaign> campaigns,
             Map<Long, ApplicationStatus> statusByCampaign
     ) {
-        Map<Long, String> nicknameByOwner = userService.findNicknames(
+        Map<Long, UserResponse> ownerById = userService.findUsers(
                 campaigns.stream().map(Campaign::getOwnerId).collect(Collectors.toSet()));
+        Map<Long, Long> remainingByCampaign = findRemainingStocks(
+                campaigns.stream().map(Campaign::getId).toList());
 
         return campaigns.stream()
                 .map(campaign -> CampaignSummaryResponse.of(
                         campaign,
-                        nicknameByOwner.get(campaign.getOwnerId()),
+                        CampaignOwnerInfo.of(
+                                campaign.getOwnerId(), ownerById.get(campaign.getOwnerId())),
+                        remainingByCampaign.get(campaign.getId()),
                         statusByCampaign.get(campaign.getId())))
                 .toList();
+    }
+
+    private CampaignOwnerInfo findOwner(Long ownerId) {
+        return CampaignOwnerInfo.of(ownerId, userService.findUser(ownerId).orElse(null));
+    }
+
+    /**
+     * 여기서의 재고는 화면을 처음 그릴 때 쓰는 참고값이라, 못 읽어도 조회 자체를 실패시키지 않는다.
+     * 재고를 정확히 알아야 하는 쪽은 {@link #getStock(Long)} 이고 그쪽은 실패를 감추지 않는다.
+     */
+    private Long findRemainingStock(Long campaignId) {
+        try {
+            return stockRepository.getRemaining(campaignId);
+        } catch (RuntimeException e) {
+            log.warn("failed to read stock for campaign detail: campaignId={}", campaignId, e);
+            return null;
+        }
+    }
+
+    private Map<Long, Long> findRemainingStocks(List<Long> campaignIds) {
+        try {
+            return stockRepository.getRemainingAll(campaignIds);
+        } catch (RuntimeException e) {
+            log.warn("failed to read stock for campaign list: campaignCount={}", campaignIds.size(), e);
+            return Map.of();
+        }
     }
 
     /**

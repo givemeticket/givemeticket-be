@@ -52,18 +52,24 @@ public class UserService {
      */
     @Transactional(readOnly = true)
     public UserResponse getUser(Long userId) {
-        return userRepository.findById(userId)
-                .map(UserResponse::from)
-                .orElseThrow(UserException::notFound);
+        return findUser(userId).orElseThrow(UserException::notFound);
     }
 
     /**
-     * 목록 화면에서 작성자 이름을 채우기 위한 일괄 조회. 없는 userId 는 키 자체가 빠진다.
+     * 없으면 비어 온다. 사용자를 못 찾아도 화면 전체가 실패하면 안 되는 곳에서 쓴다.
      */
     @Transactional(readOnly = true)
-    public Map<Long, String> findNicknames(Collection<Long> userIds) {
+    public Optional<UserResponse> findUser(Long userId) {
+        return userRepository.findById(userId).map(UserResponse::from);
+    }
+
+    /**
+     * 목록 화면에서 개설자 정보를 채우기 위한 일괄 조회. 없는 userId 는 키 자체가 빠진다.
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, UserResponse> findUsers(Collection<Long> userIds) {
         return userRepository.findAllByIdIn(userIds).stream()
-                .collect(Collectors.toMap(User::getId, User::getNickname));
+                .collect(Collectors.toMap(User::getId, UserResponse::from));
     }
 
     @Transactional(readOnly = true)
