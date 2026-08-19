@@ -61,7 +61,7 @@ public class UserWithdrawService {
      * 내가 연 행사는 참가자 전원 취소·환불까지 포함해 지운다. 캠페인 삭제와 같은 경로를 탄다.
      */
     private int deleteOwnedCampaigns(Long userId) {
-        List<Campaign> owned = campaignRepository.findAllOwnedBy(userId);
+        List<Campaign> owned = campaignRepository.findAllLiveOwnedBy(userId);
 
         for (Campaign campaign : owned) {
             campaignService.deleteCampaign(campaign.getId(), userId);

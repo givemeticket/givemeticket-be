@@ -17,11 +17,14 @@ public record GetCampaignsResponse(List<CampaignItem> campaigns) {
      *
      * @param openAt              UTC. 프론트가 로컬 시각으로 그릴 수 있도록 Z를 붙여 내려간다
      * @param eventAt             위와 같다
+     * @param ownerNickname       개설자 닉네임. 개설자를 찾을 수 없으면 null
+     * @param status              삭제된 행사도 목록에 남으므로 DELETED 로 올 수 있다
      * @param myApplicationStatus scope=participated 일 때만 채워진다
      */
     public record CampaignItem(
             Long id,
             Long ownerId,
+            String ownerNickname,
             String shortCode,
             String title,
             int totalStock,
@@ -40,6 +43,7 @@ public record GetCampaignsResponse(List<CampaignItem> campaigns) {
             return new CampaignItem(
                     campaign.id(),
                     campaign.ownerId(),
+                    summary.ownerNickname(),
                     campaign.shortCode(),
                     campaign.title(),
                     campaign.totalStock(),

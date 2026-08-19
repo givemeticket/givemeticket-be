@@ -38,6 +38,11 @@ public class JpaCampaignRepository implements CampaignRepository {
 
     @Override
     public List<Campaign> findAllOwnedBy(Long ownerId) {
+        return springDataJpaCampaignRepository.findAllByOwnerIdOrderByIdDesc(ownerId);
+    }
+
+    @Override
+    public List<Campaign> findAllLiveOwnedBy(Long ownerId) {
         return springDataJpaCampaignRepository.findAllByOwnerIdAndStatusNotOrderByIdDesc(
                 ownerId, CampaignStatus.DELETED);
     }

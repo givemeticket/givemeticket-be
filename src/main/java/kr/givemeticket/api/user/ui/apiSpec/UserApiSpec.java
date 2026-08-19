@@ -4,10 +4,29 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import kr.givemeticket.api.global.auth.annotation.LoginUserId;
+import kr.givemeticket.api.user.ui.dto.response.GetUserResponse;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
 
-@Tag(name = "유저 API", description = "내 계정 관련 API 명세입니다.")
+@Tag(name = "유저 API", description = "계정 관련 API 명세입니다.")
 public interface UserApiSpec {
+
+    @Operation(summary = "사용자 정보 조회",
+            description = """
+                    userId 로 사용자의 공개 정보(닉네임·프로필 이미지)를 조회합니다. 인증은 필요 없습니다.
+                    행사 응답의 ownerId 처럼 화면에 userId 만 들고 있을 때 씁니다.
+
+                    - profileImageUrl 은 소셜 프로필 이미지입니다. 카카오는 ID 토큰의 picture,
+                      네이버는 프로필 API 의 profile_image 를 그대로 저장하며, 둘 다 선택 동의 항목이라
+                      사용자가 동의하지 않았으면 null 입니다
+                    - 탈퇴한 계정도 404 가 아니라 200 으로 내려가고 withdrawn=true 가 붙습니다.
+                      닉네임은 "탈퇴한 사용자", 프로필 이미지는 null 입니다
+                    - 없는 userId 는 404 `USER_NOT_FOUND` 입니다
+                    """)
+    ResponseEntity<GetUserResponse> readUser(
+            @Parameter(description = "사용자 ID", example = "1")
+            @PathVariable("userId") Long userId
+    );
 
     @Operation(summary = "회원 탈퇴",
             description = """

@@ -92,6 +92,17 @@ public class Campaign extends BaseEntity {
         this.openAt = openAt;
     }
 
+    /**
+     * 이미 열린 행사의 오픈 시각을 미룬다. 오픈 전 상태로 되돌려 두면
+     * {@code CampaignScheduler} 가 새 오픈 시각에 다시 열어준다.
+     *
+     * <p>이미 들어온 신청은 그대로 둔다. 오픈을 미룬 것이지 행사를 없앤 게 아니다.
+     */
+    public void delayOpenAt(LocalDateTime openAt) {
+        this.openAt = openAt;
+        this.status = CampaignStatus.SCHEDULED;
+    }
+
     public void changeDetail(CampaignDetail detail) {
         this.detail = (detail == null || detail.isEmpty()) ? null : detail;
     }
