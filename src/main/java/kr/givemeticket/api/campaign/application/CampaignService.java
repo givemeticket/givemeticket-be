@@ -1,5 +1,6 @@
 package kr.givemeticket.api.campaign.application;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -23,6 +24,7 @@ import kr.givemeticket.api.campaign.domain.CampaignType;
 import kr.givemeticket.api.campaign.domain.ShortCodeGenerator;
 import kr.givemeticket.api.campaign.domain.StockRepository;
 import kr.givemeticket.api.campaign.domain.ViewerRole;
+import kr.givemeticket.api.user.application.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -43,6 +45,7 @@ public class CampaignService {
     private final StockRepository stockRepository;
     private final CampaignStateRepository campaignStateRepository;
     private final ShortCodeGenerator shortCodeGenerator;
+    private final UserService userService;
 
     @Transactional
     public CampaignResponse createCampaign(Long ownerId, CampaignCreateRequest request) {
@@ -102,11 +105,13 @@ public class CampaignService {
         return CampaignDetailResponse.of(campaign, role, mine, null);
     }
 
+    /**
+     * 삭제한 행사도 함께 내려간다. 목록에서 조용히 사라지면 개설자는 지운 것인지
+     * 사라진 것인지 알 수 없다. status=DELETED 로 "삭제됨"이라고 보여주면 된다.
+     */
     @Transactional(readOnly = true)
     public List<CampaignSummaryResponse> getOwnedCampaigns(Long ownerId) {
-        return campaignRepository.findAllOwnedBy(ownerId).stream()
-                .map(campaign -> CampaignSummaryResponse.of(campaign, null))
-                .toList();
+        return toSummaries(campaignRepository.findAllOwnedBy(ownerId), Map.of());
     }
 
     @Transactional(readOnly = true)
@@ -115,39 +120,49 @@ public class CampaignService {
                 .findAllByUserIdAndStatusIn(userId, ApplicationStatus.active()).stream()
                 .collect(Collectors.toMap(Application::getCampaignId, Application::getStatus));
 
-        return campaignRepository.findAllByIdIn(statusByCampaign.keySet()).stream()
+        return toSummaries(campaignRepository.findAllByIdIn(statusByCampaign.keySet()), statusByCampaign);
+    }
+
+    /**
+     * 개설자 닉네임은 캠페인마다 조회하지 않고 한 번에 모아 온다.
+     */
+    private List<CampaignSummaryResponse> toSummaries(
+            List<Campaign> campaigns,
+            Map<Long, ApplicationStatus> statusByCampaign
+    ) {
+        Map<Long, String> nicknameByOwner = userService.findNicknames(
+                campaigns.stream().map(Campaign::getOwnerId).collect(Collectors.toSet()));
+
+        return campaigns.stream()
                 .map(campaign -> CampaignSummaryResponse.of(
-                        campaign, statusByCampaign.get(campaign.getId())))
+                        campaign,
+                        nicknameByOwner.get(campaign.getOwnerId()),
+                        statusByCampaign.get(campaign.getId())))
                 .toList();
     }
 
+    /**
+     * 제한은 이미 열린 행사에만 건다. 아직 열리지 않았으면 신청자가 없으니
+     * 오픈 시각도 정원도 자유롭게 고칠 수 있다(오픈 시각이 미래인지는 요청 DTO 가 본다).
+     *
+     * <p>지금 값과 같은 값이 와도 오류로 보지 않는다. 프론트가 폼 전체를 그대로 보내는 게
+     * 자연스러운데, 안 바꾼 필드까지 검사하면 정원만 늘리려 해도 막히기 때문이다.
+     */
     @Transactional
     public CampaignResponse updateCampaign(Long campaignId, Long userId, CampaignUpdateRequest request) {
         if (request.isEmpty()) {
             throw CampaignApplicationException.nothingToUpdate();
         }
         Campaign campaign = findManageableCampaign(campaignId, userId);
+        // 오픈 시각을 미루면 상태가 SCHEDULED 로 돌아가므로, 판정 기준은 손대기 전에 잡아둔다.
+        boolean opened = !campaign.isScheduled();
 
-        if (request.openAt() != null) {
-            if (!campaign.isScheduled() || !request.openAt().isAfter(campaign.getOpenAt())) {
-                throw CampaignApplicationException.openAtNotDelayable();
-            }
-            campaign.changeOpenAt(request.openAt());
+        if (request.openAt() != null && !request.openAt().isEqual(campaign.getOpenAt())) {
+            changeOpenAt(campaign, request.openAt(), opened);
         }
 
-        if (request.totalStock() != null) {
-            if (request.totalStock() <= campaign.getTotalStock()) {
-                throw CampaignApplicationException.totalStockNotIncreasable();
-            }
-            int delta = campaign.changeTotalStock(request.totalStock());
-            stockRepository.increaseBy(campaignId, delta);
-
-            campaignStateRepository.find(campaignId).ifPresent(state ->
-                    campaignStateRepository.save(campaignId,
-                            new CampaignState(state.requiresPayment(), campaign.getTotalStock())));
-
-            log.info("campaign stock increased: campaignId={}, delta={}, totalStock={}",
-                    campaignId, delta, campaign.getTotalStock());
+        if (request.totalStock() != null && request.totalStock() != campaign.getTotalStock()) {
+            changeTotalStock(campaign, request.totalStock(), opened);
         }
 
         if (request.detail() != null) {
@@ -155,6 +170,49 @@ public class CampaignService {
         }
 
         return CampaignResponse.of(campaign);
+    }
+
+    /**
+     * 열린 행사는 뒤로 미루는 것만 된다. 앞당기면 이미 신청을 놓친 사람이 생긴다.
+     *
+     * <p>미룰 때는 신청 게이트를 걷어 접수를 멈춘다. 이걸 두고 시각만 바꾸면
+     * "아직 안 열린 행사인데 신청은 받는" 상태가 된다. 새 시각이 되면 스케줄러가 다시 연다.
+     */
+    private void changeOpenAt(Campaign campaign, LocalDateTime openAt, boolean opened) {
+        if (!opened) {
+            campaign.changeOpenAt(openAt);
+            return;
+        }
+        if (!openAt.isAfter(campaign.getOpenAt())) {
+            throw CampaignApplicationException.openAtNotDelayable();
+        }
+
+        campaign.delayOpenAt(openAt);
+        campaignStateRepository.remove(campaign.getId());
+
+        log.info("campaign open delayed: campaignId={}, openAt={}", campaign.getId(), openAt);
+    }
+
+    /**
+     * 열린 행사는 늘리는 것만 된다. 이미 나간 자리를 줄일 방법이 없다.
+     *
+     * <p>열리기 전이면 줄여도 된다. 아무도 신청하지 않았으므로 Redis 재고는 정원 그대로다.
+     */
+    private void changeTotalStock(Campaign campaign, int totalStock, boolean opened) {
+        if (opened && totalStock < campaign.getTotalStock()) {
+            throw CampaignApplicationException.totalStockNotIncreasable();
+        }
+
+        Long campaignId = campaign.getId();
+        int delta = campaign.changeTotalStock(totalStock);
+        stockRepository.increaseBy(campaignId, delta);
+
+        campaignStateRepository.find(campaignId).ifPresent(state ->
+                campaignStateRepository.save(campaignId,
+                        new CampaignState(state.requiresPayment(), totalStock)));
+
+        log.info("campaign stock changed: campaignId={}, delta={}, totalStock={}",
+                campaignId, delta, totalStock);
     }
 
     /**

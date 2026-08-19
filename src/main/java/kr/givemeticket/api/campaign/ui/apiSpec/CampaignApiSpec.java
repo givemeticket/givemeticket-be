@@ -53,9 +53,15 @@ public interface CampaignApiSpec {
     );
 
     @Operation(summary = "캠페인 목록 조회",
-            description = "owned는 내가 만든 행사, participated는 내가 참여중인 행사(나의 티켓)입니다. "
-                    + "목록에는 카드에 필요한 eventAt/location/imageUrl만 펼쳐지고 본문은 상세 조회에서만 내려갑니다. "
-                    + "잔여 재고와 매진 여부는 여기 없고 GET /campaigns/{campaignId}/stock 에서 받습니다.")
+            description = """
+                    owned는 내가 만든 행사, participated는 내가 참여중인 행사(나의 티켓)입니다.
+
+                    - 목록에는 카드에 필요한 eventAt/location/imageUrl만 펼쳐지고 본문은 상세 조회에서만 내려갑니다
+                    - 개설자 닉네임이 ownerNickname 으로 함께 내려갑니다
+                    - owned 에는 삭제한 행사도 status=DELETED 로 남습니다. 목록에서 지우지 않고
+                      "삭제됨"으로 보여주면 됩니다 (participated 는 삭제되면 신청이 취소되므로 빠집니다)
+                    - 잔여 재고와 매진 여부는 여기 없고 GET /campaigns/{campaignId}/stock 에서 받습니다
+                    """)
     ResponseEntity<GetCampaignsResponse> readCampaigns(
             @Parameter(hidden = true) @LoginUserId Long userId,
             @Parameter(description = "조회 범위", example = "owned",
@@ -64,9 +70,25 @@ public interface CampaignApiSpec {
     );
 
     @Operation(summary = "캠페인 수정",
-            description = "개설자만 호출할 수 있습니다. 오픈 시각은 오픈 전에 더 늦은 시각으로만, "
-                    + "정원은 늘리는 방향으로만 바꿀 수 있습니다. 매진 상태에서 증원하면 자동으로 다시 신청 가능해집니다. "
-                    + "detail은 지정하면 통째로 교체되며, 빈 값으로 보내면 안내 정보가 지워집니다.")
+            description = """
+                    개설자만 호출할 수 있습니다. 제한은 이미 오픈된 행사에만 걸립니다.
+
+                    아직 오픈 전(status=SCHEDULED)이면
+                    - openAt 은 미래 시각이기만 하면 앞당기든 미루든 자유입니다
+                    - totalStock 도 자유롭습니다. 신청자가 없으므로 줄여도 됩니다
+
+                    이미 오픈된 뒤(status=OPEN)라면
+                    - openAt 은 지금 설정된 시각보다 뒤로만 옮길 수 있습니다. 미루면 접수가 멈추고
+                      status 가 SCHEDULED 로 돌아가며, 새 오픈 시각이 되면 다시 열립니다.
+                      이미 들어온 신청은 그대로 유지됩니다. 앞당기려 하면 409 `OPEN_AT_NOT_DELAYABLE`
+                    - totalStock 은 늘리는 것만 됩니다. 줄이려 하면 409 `TOTAL_STOCK_NOT_INCREASABLE`.
+                      매진 상태에서 증원하면 자동으로 다시 신청 가능해집니다
+
+                    지금과 같은 값을 보내는 것은 오류가 아니라 무시입니다. 폼 전체를 그대로 보내도
+                    정원만 바꾸거나 오픈 시각만 바꾸는 요청이 그대로 통과합니다.
+
+                    detail은 지정하면 통째로 교체되며, 빈 값으로 보내면 안내 정보가 지워집니다.
+                    """)
     ResponseEntity<PatchCampaignResponse> updateCampaign(
             @Parameter(hidden = true) @LoginUserId Long userId,
             @Parameter(description = "캠페인 ID", example = "1")

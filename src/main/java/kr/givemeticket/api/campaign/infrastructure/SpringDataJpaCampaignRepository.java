@@ -17,6 +17,8 @@ public interface SpringDataJpaCampaignRepository extends JpaRepository<Campaign,
 
     boolean existsByShortCode(String shortCode);
 
+    List<Campaign> findAllByOwnerIdOrderByIdDesc(Long ownerId);
+
     List<Campaign> findAllByOwnerIdAndStatusNotOrderByIdDesc(Long ownerId, CampaignStatus excluded);
 
     List<Campaign> findAllByIdInOrderByIdDesc(Collection<Long> ids);

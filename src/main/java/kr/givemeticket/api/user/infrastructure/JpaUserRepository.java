@@ -1,5 +1,7 @@
 package kr.givemeticket.api.user.infrastructure;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import kr.givemeticket.api.login.domain.Provider;
 import kr.givemeticket.api.user.domain.User;
@@ -16,6 +18,14 @@ public class JpaUserRepository implements UserRepository {
     @Override
     public Optional<User> findById(Long userId) {
         return springDataJpaUserRepository.findById(userId);
+    }
+
+    @Override
+    public List<User> findAllByIdIn(Collection<Long> userIds) {
+        if (userIds.isEmpty()) {
+            return List.of();
+        }
+        return springDataJpaUserRepository.findAllById(userIds);
     }
 
     @Override
