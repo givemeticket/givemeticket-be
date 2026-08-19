@@ -5,7 +5,8 @@ const BASE_URL = __ENV.BASE_URL || 'http://localhost:18080';
 const VUS = Number(__ENV.VUS || 50);
 const DURATION = __ENV.DURATION || '2m';
 const API = `${BASE_URL}/api/v1`;
-const OWNER = { 'Content-Type': 'application/json', 'X-User-Id': '1' };
+const OWNER_ID = 1;
+const OWNER = jsonAuthHeaders(OWNER_ID);
 
 // 결제 경로까지 계속 두드리는 것이 이 테스트의 목적이다.
 http.setResponseCallback(http.expectedStatuses(200, 201, 202, 409));
@@ -55,7 +56,7 @@ export default function (data) {
 
   group('read', () => {
     const res = http.get(`${API}/campaigns/${data.shortCode}`, {
-      headers: { 'X-User-Id': String(userId) },
+      headers: authHeaders(userId),
     });
     check(res, { '조회 200': (r) => r.status === 200 });
   });
@@ -63,7 +64,7 @@ export default function (data) {
   let applicationId;
   group('apply', () => {
     const res = http.post(`${API}/campaigns/${data.campaignId}/apply`, null, {
-      headers: { 'X-User-Id': String(userId) },
+      headers: authHeaders(userId),
     });
     check(res, { '신청 201/409': (r) => r.status === 201 || r.status === 409 });
     if (res.status === 201 && res.json('status') === 'PENDING') {
@@ -74,7 +75,7 @@ export default function (data) {
   if (applicationId) {
     group('confirm', () => {
       const res = http.post(`${API}/applications/${applicationId}/confirm`, null, {
-        headers: { 'X-User-Id': String(userId) },
+        headers: authHeaders(userId),
       });
       check(res, { '확정 200/202': (r) => r.status === 200 || r.status === 202 });
     });

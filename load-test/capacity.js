@@ -1,10 +1,12 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
+import { authHeaders, jsonAuthHeaders } from './lib/auth.js';
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:18080';
 const STOCK = Number(__ENV.STOCK || 100);
 const API = `${BASE_URL}/api/v1`;
-const OWNER = { 'Content-Type': 'application/json', 'X-User-Id': '1' };
+const OWNER_ID = 1;
+const OWNER = jsonAuthHeaders(OWNER_ID);
 
 http.setResponseCallback(http.expectedStatuses(200, 201, 202, 409));
 
@@ -52,7 +54,7 @@ export function setup() {
 export default function (data) {
   const userId = __VU * 1000000 + __ITER;
   const res = http.post(`${API}/campaigns/${data.campaignId}/apply`, null, {
-    headers: { 'X-User-Id': String(userId) },
+    headers: authHeaders(userId),
   });
   check(res, { '5xx 아님': (r) => r.status === 201 || r.status === 202 || r.status === 409 });
 }
