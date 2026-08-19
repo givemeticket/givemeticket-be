@@ -1,6 +1,9 @@
 package kr.givemeticket.api.campaign.infrastructure;
 
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import kr.givemeticket.api.campaign.domain.StockDecreaseResult;
 import kr.givemeticket.api.campaign.domain.StockRepository;
 import lombok.RequiredArgsConstructor;
@@ -53,6 +56,33 @@ public class RedisStockRepository implements StockRepository {
     public Long getRemaining(Long campaignId) {
         String value = stringRedisTemplate.opsForValue().get(key(campaignId));
         return (value == null) ? null : Long.parseLong(value);
+    }
+
+    /**
+     * MGET 한 번으로 끝낸다. 값이 없는 자리는 null 로 오는데, 그 캠페인은 결과에서 뺀다.
+     */
+    @Override
+    public Map<Long, Long> getRemainingAll(Collection<Long> campaignIds) {
+        if (campaignIds.isEmpty()) {
+            return Map.of();
+        }
+
+        List<Long> ids = List.copyOf(campaignIds);
+        List<String> values = stringRedisTemplate.opsForValue()
+                .multiGet(ids.stream().map(this::key).toList());
+
+        if (values == null) {
+            return Map.of();
+        }
+
+        Map<Long, Long> remainingById = new HashMap<>();
+        for (int i = 0; i < ids.size(); i++) {
+            String value = values.get(i);
+            if (value != null) {
+                remainingById.put(ids.get(i), Long.parseLong(value));
+            }
+        }
+        return remainingById;
     }
 
     @Override

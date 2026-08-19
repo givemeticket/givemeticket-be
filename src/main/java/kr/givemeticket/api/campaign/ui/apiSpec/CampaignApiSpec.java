@@ -31,12 +31,18 @@ public interface CampaignApiSpec {
     );
 
     @Operation(summary = "캠페인 상세 조회",
-            description = "공유 링크의 shortCode로 조회합니다. 인증은 선택이며, 토큰 유무와 소유·신청 여부에 따라 "
-                    + "viewerRole이 GUEST / VIEWER / PARTICIPANT / OWNER로 내려갑니다. "
-                    + "토큰을 보냈는데 유효하지 않으면 401입니다. "
-                    + "행사 안내 정보는 detail에 담기며 등록된 게 없으면 null입니다. "
-                    + "삭제된 캠페인은 410을 반환합니다. "
-                    + "잔여 재고와 매진 여부는 여기 없고 GET /campaigns/{campaignId}/stock 에서 받습니다.")
+            description = """
+                    공유 링크의 shortCode로 조회합니다. 인증은 선택이며, 토큰 유무와 소유·신청 여부에 따라
+                    viewerRole이 GUEST / VIEWER / PARTICIPANT / OWNER로 내려갑니다.
+                    토큰을 보냈는데 유효하지 않으면 401입니다.
+
+                    - 개설자 정보는 owner(id/nickname/profileImageUrl)에 담깁니다
+                    - 잔여 재고(remainingStock)와 매진 여부(soldOut)가 함께 내려갑니다. 첫 화면을 한 번에
+                      그리기 위한 조회 시점 스냅샷이며, 이후 갱신은 GET /campaigns/{campaignId}/stock 으로
+                      폴링하세요. 재고를 읽지 못한 경우에도 조회는 성공하고 두 값이 null 로 옵니다
+                    - 행사 안내 정보는 detail에 담기며 등록된 게 없으면 null입니다
+                    - 삭제된 캠페인은 410을 반환합니다
+                    """)
     ResponseEntity<GetCampaignResponse> readCampaign(
             @Parameter(hidden = true) @LoginUserId(required = false) Long userId,
             @Parameter(description = "공유 링크 코드", example = "3AbCdEfGh1")
@@ -44,8 +50,9 @@ public interface CampaignApiSpec {
     );
 
     @Operation(summary = "잔여 재고 조회",
-            description = "잔여 재고와 매진 여부만 내려줍니다. 상세·목록 조회보다 훨씬 자주 폴링되는 값이라 "
-                    + "별도 API로 분리했고, DB를 거치지 않고 Redis만 읽습니다. "
+            description = "잔여 재고와 매진 여부만 내려주는 폴링용 API입니다. 상세·목록 응답에도 같은 값이 "
+                    + "들어 있지만 그건 첫 화면용 스냅샷이고, 이후 갱신은 이 API로 받으세요. "
+                    + "DB를 거치지 않고 Redis만 읽습니다. "
                     + "인증은 필요 없습니다. 없거나 삭제된 캠페인은 404입니다.")
     ResponseEntity<GetCampaignStockResponse> readCampaignStock(
             @Parameter(description = "캠페인 ID", example = "1")
@@ -57,10 +64,11 @@ public interface CampaignApiSpec {
                     owned는 내가 만든 행사, participated는 내가 참여중인 행사(나의 티켓)입니다.
 
                     - 목록에는 카드에 필요한 eventAt/location/imageUrl만 펼쳐지고 본문은 상세 조회에서만 내려갑니다
-                    - 개설자 닉네임이 ownerNickname 으로 함께 내려갑니다
+                    - 개설자 정보는 owner(id/nickname/profileImageUrl)에 담깁니다
+                    - 카드마다 재고를 따로 부르지 않도록 remainingStock/soldOut 이 함께 내려갑니다.
+                      삭제된 행사이거나 재고를 읽지 못하면 두 값이 null 입니다
                     - owned 에는 삭제한 행사도 status=DELETED 로 남습니다. 목록에서 지우지 않고
                       "삭제됨"으로 보여주면 됩니다 (participated 는 삭제되면 신청이 취소되므로 빠집니다)
-                    - 잔여 재고와 매진 여부는 여기 없고 GET /campaigns/{campaignId}/stock 에서 받습니다
                     """)
     ResponseEntity<GetCampaignsResponse> readCampaigns(
             @Parameter(hidden = true) @LoginUserId Long userId,

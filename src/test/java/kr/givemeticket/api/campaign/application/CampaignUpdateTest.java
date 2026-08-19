@@ -4,22 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.lang.reflect.Field;
 import java.time.LocalDateTime;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import kr.givemeticket.api.campaign.application.dto.request.CampaignUpdateRequest;
 import kr.givemeticket.api.campaign.domain.Campaign;
-import kr.givemeticket.api.campaign.domain.CampaignRepository;
 import kr.givemeticket.api.campaign.domain.CampaignState;
-import kr.givemeticket.api.campaign.domain.CampaignStateRepository;
 import kr.givemeticket.api.campaign.domain.CampaignStatus;
 import kr.givemeticket.api.campaign.domain.CampaignType;
-import kr.givemeticket.api.campaign.domain.StockDecreaseResult;
-import kr.givemeticket.api.campaign.domain.StockRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -154,10 +144,10 @@ class CampaignUpdateTest {
         Campaign campaign = new Campaign(
                 OWNER_ID, "3AbCdEfGh1", "테스트 행사", CampaignType.TICKET,
                 totalStock, OPEN_AT, false, null);
-        setField(campaign, "id", CAMPAIGN_ID);
-        setField(campaign, "status", status);
+        TestEntities.with(campaign, "id", CAMPAIGN_ID);
+        TestEntities.with(campaign, "status", status);
 
-        campaignRepository.campaigns.put(CAMPAIGN_ID, campaign);
+        campaignRepository.put(CAMPAIGN_ID, campaign);
         return campaign;
     }
 
@@ -165,132 +155,4 @@ class CampaignUpdateTest {
         return new CampaignUpdateRequest(openAt, totalStock, null);
     }
 
-    /**
-     * 식별자와 상태는 영속화 과정에서 정해지는 값이라 테스트에서 직접 심는다.
-     */
-    private static void setField(Object target, String name, Object value) {
-        try {
-            Class<?> type = target.getClass();
-            Field field = null;
-            while (type != null && field == null) {
-                try {
-                    field = type.getDeclaredField(name);
-                } catch (NoSuchFieldException e) {
-                    type = type.getSuperclass();
-                }
-            }
-            if (field == null) {
-                throw new NoSuchFieldException(name);
-            }
-            field.setAccessible(true);
-            field.set(target, value);
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
-    private static class FakeCampaignRepository implements CampaignRepository {
-
-        private final Map<Long, Campaign> campaigns = new HashMap<>();
-
-        @Override
-        public Optional<Campaign> findById(Long campaignId) {
-            return Optional.ofNullable(campaigns.get(campaignId));
-        }
-
-        @Override
-        public Campaign save(Campaign campaign) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Optional<Campaign> findByShortCode(String shortCode) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public boolean existsByShortCode(String shortCode) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public List<Campaign> findAllOwnedBy(Long ownerId) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public List<Campaign> findAllLiveOwnedBy(Long ownerId) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public List<Campaign> findAllByIdIn(Collection<Long> campaignIds) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public List<Campaign> findAllByStatusAndOpenAtLessThanEqual(CampaignStatus status, LocalDateTime now) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public int markDeleted(Long campaignId) {
-            throw new UnsupportedOperationException();
-        }
-    }
-
-    private static class FakeStockRepository implements StockRepository {
-
-        private final Map<Long, Long> stock = new HashMap<>();
-
-        @Override
-        public void increaseBy(Long campaignId, int delta) {
-            stock.merge(campaignId, (long) delta, Long::sum);
-        }
-
-        @Override
-        public void initialize(Long campaignId, int totalStock) {
-            stock.put(campaignId, (long) totalStock);
-        }
-
-        @Override
-        public StockDecreaseResult decrease(Long campaignId) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void restore(Long campaignId, int upperBound) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Long getRemaining(Long campaignId) {
-            return stock.get(campaignId);
-        }
-
-        @Override
-        public void remove(Long campaignId) {
-            stock.remove(campaignId);
-        }
-    }
-
-    private static class FakeCampaignStateRepository implements CampaignStateRepository {
-
-        private final Map<Long, CampaignState> states = new HashMap<>();
-
-        @Override
-        public void save(Long campaignId, CampaignState state) {
-            states.put(campaignId, state);
-        }
-
-        @Override
-        public Optional<CampaignState> find(Long campaignId) {
-            return Optional.ofNullable(states.get(campaignId));
-        }
-
-        @Override
-        public void remove(Long campaignId) {
-            states.remove(campaignId);
-        }
-    }
 }
