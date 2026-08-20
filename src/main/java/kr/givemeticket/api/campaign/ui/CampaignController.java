@@ -7,6 +7,7 @@ import kr.givemeticket.api.campaign.application.dto.CampaignScope;
 import kr.givemeticket.api.campaign.ui.apiSpec.CampaignApiSpec;
 import kr.givemeticket.api.campaign.ui.dto.request.PatchCampaignRequest;
 import kr.givemeticket.api.campaign.ui.dto.request.PostCampaignRequest;
+import kr.givemeticket.api.campaign.ui.dto.response.CloseCampaignResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.CreateCampaignResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignStockResponse;
@@ -95,6 +96,17 @@ public class CampaignController implements CampaignApiSpec {
                 campaignService.updateCampaign(campaignId, userId, request.toCampaignUpdateRequest()));
 
         return ResponseEntity.ok(patchCampaignResponse);
+    }
+
+    @Override
+    @BusinessLogging("캠페인 종료")
+    @PostMapping("campaigns/{campaignId}/close")
+    public ResponseEntity<CloseCampaignResponse> closeCampaign(
+            @LoginUserId Long userId,
+            @PathVariable("campaignId") Long campaignId
+    ) {
+        return ResponseEntity.ok(
+                CloseCampaignResponse.from(campaignService.closeCampaign(campaignId, userId)));
     }
 
     @Override

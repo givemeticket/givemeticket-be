@@ -20,6 +20,23 @@ public interface SpringDataJpaApplicationRepository extends JpaRepository<Applic
     List<Application> findAllByUserIdAndStatusInOrderByIdDesc(
             Long userId, Collection<ApplicationStatus> statuses);
 
+    /**
+     * 취소 사유는 CANCELLED 인 건에만 의미가 있으므로 상태까지 함께 못 박는다.
+     * 사유만 보고 걸면 나중에 같은 사유를 FAILED 쪽에서 쓰기 시작할 때 조용히 딸려 온다.
+     */
+    @Query("""
+            SELECT a FROM Application a
+             WHERE a.userId = :userId
+               AND (a.status IN :statuses
+                    OR (a.status = kr.givemeticket.api.apply.domain.ApplicationStatus.CANCELLED
+                        AND a.failureReason IN :failureReasons))
+             ORDER BY a.id DESC
+            """)
+    List<Application> findAllByUserIdAndStatusInOrFailureReasonIn(
+            @Param("userId") Long userId,
+            @Param("statuses") Collection<ApplicationStatus> statuses,
+            @Param("failureReasons") Collection<FailureReason> failureReasons);
+
     @Query("""
             SELECT a FROM Application a
              WHERE a.status = kr.givemeticket.api.apply.domain.ApplicationStatus.PENDING

@@ -40,6 +40,15 @@ public class JpaApplicationRepository implements ApplicationRepository {
     }
 
     @Override
+    public List<Application> findAllByUserIdAndStatusInOrFailureReasonIn(
+            Long userId,
+            Collection<ApplicationStatus> statuses,
+            Collection<FailureReason> failureReasons) {
+        return springDataJpaApplicationRepository.findAllByUserIdAndStatusInOrFailureReasonIn(
+                userId, statuses, failureReasons);
+    }
+
+    @Override
     public List<Application> findExpiredPending(LocalDateTime now, int limit) {
         return springDataJpaApplicationRepository.findExpiredPending(now, PageRequest.of(0, limit));
     }

@@ -48,6 +48,14 @@ public class CampaignApplicationException extends BusinessException {
     }
 
     /**
+     * 종료는 되돌리는 수단이 없다. 오픈 시각을 미래로 옮겨 슬쩍 다시 열리게 하는 것도 막는다.
+     */
+    public static CampaignApplicationException campaignClosed() {
+        return new CampaignApplicationException(HttpStatus.CONFLICT, "CAMPAIGN_CLOSED",
+                "종료된 행사의 오픈 시각은 변경할 수 없습니다.");
+    }
+
+    /**
      * 이미 열린 행사에만 걸린다. 오픈 전 행사는 미래이기만 하면 어디로든 옮길 수 있다.
      */
     public static CampaignApplicationException openAtNotDelayable() {
