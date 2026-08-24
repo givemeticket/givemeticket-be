@@ -1,15 +1,10 @@
 package kr.givemeticket.api.apply.application;
 
-import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 import kr.givemeticket.api.apply.application.dto.response.ApplicationResponse;
-import kr.givemeticket.api.apply.application.dto.response.CancelResponse;
 import kr.givemeticket.api.apply.domain.Application;
 import kr.givemeticket.api.apply.domain.ApplicationRepository;
 import kr.givemeticket.api.apply.domain.ApplicationStatus;
-import kr.givemeticket.api.apply.domain.FailureReason;
 import kr.givemeticket.api.campaign.application.CampaignApplicationException;
 import kr.givemeticket.api.campaign.domain.Campaign;
 import kr.givemeticket.api.campaign.domain.CampaignRepository;
@@ -17,18 +12,15 @@ import kr.givemeticket.api.campaign.domain.CampaignState;
 import kr.givemeticket.api.campaign.domain.CampaignStateRepository;
 import kr.givemeticket.api.campaign.domain.StockDecreaseResult;
 import kr.givemeticket.api.campaign.domain.StockRepository;
-import kr.givemeticket.api.payment.domain.PaymentClient;
-import kr.givemeticket.api.payment.domain.PaymentException;
-import kr.givemeticket.api.payment.domain.PaymentResult;
-import kr.givemeticket.api.payment.domain.RefundStatus;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class ApplicationService {
 
     private final ApplicationRepository applicationRepository;
@@ -36,27 +28,10 @@ public class ApplicationService {
     private final CampaignRepository campaignRepository;
     private final CampaignStateRepository campaignStateRepository;
     private final StockRepository stockRepository;
-    private final PaymentClient paymentClient;
-    private final Duration holdDuration;
 
-    public ApplicationService(
-            ApplicationRepository applicationRepository,
-            ApplicationPersister applicationPersister,
-            CampaignRepository campaignRepository,
-            CampaignStateRepository campaignStateRepository,
-            StockRepository stockRepository,
-            PaymentClient paymentClient,
-            @Value("${application.hold-duration:2m}") Duration holdDuration
-    ) {
-        this.applicationRepository = applicationRepository;
-        this.applicationPersister = applicationPersister;
-        this.campaignRepository = campaignRepository;
-        this.campaignStateRepository = campaignStateRepository;
-        this.stockRepository = stockRepository;
-        this.paymentClient = paymentClient;
-        this.holdDuration = holdDuration;
-    }
-
+    /**
+     * 자리를 잡으면 그대로 확정이다. 결제 단계가 없어 PENDING 을 거치지 않는다.
+     */
     public ApplicationResponse apply(Long campaignId, Long userId) {
         CampaignState state = campaignStateRepository.find(campaignId)
                 .orElseThrow(CampaignApplicationException::notOpen);
@@ -64,54 +39,16 @@ public class ApplicationService {
         decreaseStock(campaignId);
 
         try {
-            return ApplicationResponse.from(state.requiresPayment()
-                    ? applicationPersister.reserve(campaignId, userId,
-                            UUID.randomUUID().toString(), LocalDateTime.now().plus(holdDuration))
-                    : applicationPersister.confirmImmediately(campaignId, userId));
+            return ApplicationResponse.from(applicationPersister.confirm(campaignId, userId));
         } catch (RuntimeException e) {
             stockRepository.restore(campaignId, state.totalStock());
             throw translatePersistFailure(campaignId, e);
         }
     }
 
-    public ApplicationResponse confirm(Long applicationId, Long userId) {
-        Application application = findOwnedApplication(applicationId, userId);
-        if (!application.isPending()) {
-            throw ApplyApplicationException.notPending(application.getStatus());
-        }
-
-        int upperBound = campaignOf(application).getTotalStock();
-
-        if (application.isExpired(LocalDateTime.now())) {
-            expire(application, upperBound);
-            throw ApplyApplicationException.expired();
-        }
-
-        applicationPersister.markPaymentRequested(applicationId);
-        PaymentResult payment = paymentClient.charge(
-                application.getPaymentKey(), applicationId, userId);
-
-        return switch (payment.outcome()) {
-            case APPROVED -> settleApproved(application, payment);
-            case DECLINED -> {
-                failAndRestore(application, upperBound, FailureReason.PAYMENT_DECLINED);
-                throw ApplyApplicationException.paymentDeclined();
-            }
-            case ERROR -> {
-                failAndRestore(application, upperBound, FailureReason.PAYMENT_ERROR);
-                throw PaymentException.gatewayError();
-            }
-            case UNKNOWN -> settleUnknown(application);
-        };
-    }
-
-    public CancelResponse cancel(Long applicationId, Long userId) {
+    public ApplicationResponse cancel(Long applicationId, Long userId) {
         Application application = findOwnedApplication(applicationId, userId);
 
-        if (application.getStatus() == ApplicationStatus.UNKNOWN
-                || application.getStatus() == ApplicationStatus.MANUAL_REVIEW) {
-            throw ApplyApplicationException.cancelPendingSettlement();
-        }
         if (application.getStatus() != ApplicationStatus.CONFIRMED) {
             throw ApplyApplicationException.notCancelable(application.getStatus());
         }
@@ -126,7 +63,7 @@ public class ApplicationService {
         log.info("application cancelled: applicationId={}, campaignId={}",
                 applicationId, application.getCampaignId());
 
-        return new CancelResponse(currentStateOf(applicationId), refund(application, campaign));
+        return currentStateOf(applicationId);
     }
 
     @Transactional(readOnly = true)
@@ -136,8 +73,6 @@ public class ApplicationService {
 
     /**
      * 캠페인이 삭제되어 남은 신청을 일괄 취소한다.
-     *
-     * <p>사용자 취소와 달리 결제 전(PENDING)과 정산 대기(UNKNOWN / MANUAL_REVIEW)도 대상이다.
      * 재고는 캠페인과 함께 사라지므로 복원하지 않는다.
      *
      * <p>호출자가 신규 신청을 먼저 막은 뒤 불러야 한다. 그러지 않으면 취소하는 사이에 들어온
@@ -151,12 +86,11 @@ public class ApplicationService {
 
         int cancelled = 0;
         for (Application application : targets) {
-            // 그 사이 사용자가 직접 취소했거나 sweeper 가 만료시켰으면 0행이다. 환불도 보내면 안 된다.
+            // 그 사이 사용자가 직접 취소했으면 0행이다.
             if (applicationPersister.cancelByCampaignDeletion(application.getId()) == 0) {
                 continue;
             }
             cancelled++;
-            refundIfCharged(application, campaign);
         }
 
         if (cancelled > 0) {
@@ -185,39 +119,19 @@ public class ApplicationService {
                 continue;
             }
 
-            // 그 사이 사용자가 직접 취소했거나 sweeper 가 만료시켰으면 0행이다. 환불도 보내면 안 된다.
+            // 그 사이 사용자가 직접 취소했으면 0행이다.
             if (applicationPersister.cancelByUserWithdrawal(application.getId()) == 0) {
                 continue;
             }
             cancelled++;
 
             stockRepository.restore(application.getCampaignId(), campaign.getTotalStock());
-            refundIfCharged(application, campaign);
         }
 
         if (cancelled > 0) {
             log.info("applications cancelled by user withdrawal: userId={}, count={}", userId, cancelled);
         }
         return cancelled;
-    }
-
-    /**
-     * 결제 요청이 실제로 나간 건만 환불한다.
-     * PENDING 은 대부분 결제 전이고, 여기에 취소를 보내면 PG 가 모르는 거래를 취소하려 드는 꼴이 된다.
-     */
-    private void refundIfCharged(Application application, Campaign campaign) {
-        if (!campaign.isRequiresPayment()
-                || application.getPaymentKey() == null
-                || application.getPaymentRequestedAt() == null) {
-            return;
-        }
-
-        if (!paymentClient.cancel(application.getPaymentKey())) {
-            // 취소는 되돌리지 않는다. 사용자 입장의 정리는 이미 끝났고 환불은 뒤에서 다시 시도할 문제다.
-            log.error("refund failed on bulk cancellation, retry needed: "
-                            + "applicationId={}, campaignId={}, paymentKey={}",
-                    application.getId(), campaign.getId(), application.getPaymentKey());
-        }
     }
 
     private void decreaseStock(Long campaignId) {
@@ -227,49 +141,6 @@ public class ApplicationService {
             case SOLD_OUT -> throw CampaignApplicationException.soldOut();
             case SUCCESS -> { }
         }
-    }
-
-    private ApplicationResponse settleApproved(Application application, PaymentResult payment) {
-        if (applicationPersister.confirm(application.getId(), payment.transactionId()) == 0) {
-            log.error("payment approved but application was no longer pending: "
-                            + "applicationId={}, paymentKey={}, transactionId={}",
-                    application.getId(), application.getPaymentKey(), payment.transactionId());
-        }
-        return currentStateOf(application.getId());
-    }
-
-    private ApplicationResponse settleUnknown(Application application) {
-        applicationPersister.markUnknown(application.getId());
-        log.error("payment outcome unknown, stock held for reconciliation: applicationId={}, paymentKey={}",
-                application.getId(), application.getPaymentKey());
-        return currentStateOf(application.getId());
-    }
-
-    private void expire(Application application, int upperBound) {
-        failAndRestore(application, upperBound, FailureReason.EXPIRED);
-    }
-
-    private void failAndRestore(Application application, int upperBound, FailureReason reason) {
-        if (applicationPersister.fail(application.getId(), reason) == 0) {
-            log.warn("stock not restored, application already settled: applicationId={}, reason={}",
-                    application.getId(), reason);
-            return;
-        }
-        stockRepository.restore(application.getCampaignId(), upperBound);
-        log.info("stock restored: applicationId={}, campaignId={}, reason={}",
-                application.getId(), application.getCampaignId(), reason);
-    }
-
-    private RefundStatus refund(Application application, Campaign campaign) {
-        if (!campaign.isRequiresPayment() || application.getPaymentKey() == null) {
-            return RefundStatus.NOT_REQUIRED;
-        }
-        if (paymentClient.cancel(application.getPaymentKey())) {
-            return RefundStatus.COMPLETED;
-        }
-        log.error("refund request failed, retry needed: applicationId={}, paymentKey={}",
-                application.getId(), application.getPaymentKey());
-        return RefundStatus.PENDING_RETRY;
     }
 
     private Application findOwnedApplication(Long applicationId, Long userId) {

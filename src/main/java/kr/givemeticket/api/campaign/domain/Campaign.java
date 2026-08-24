@@ -44,9 +44,6 @@ public class Campaign extends BaseEntity {
     @Column(name = "open_at", nullable = false)
     private LocalDateTime openAt;
 
-    @Column(name = "requires_payment", nullable = false)
-    private boolean requiresPayment;
-
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(name = "status", nullable = false, length = 32)
@@ -62,7 +59,6 @@ public class Campaign extends BaseEntity {
             CampaignType type,
             int totalStock,
             LocalDateTime openAt,
-            boolean requiresPayment,
             CampaignDetail detail
     ) {
         this.ownerId = ownerId;
@@ -71,7 +67,6 @@ public class Campaign extends BaseEntity {
         this.type = type;
         this.totalStock = totalStock;
         this.openAt = openAt;
-        this.requiresPayment = requiresPayment;
         this.detail = detail;
         this.status = CampaignStatus.SCHEDULED;
     }

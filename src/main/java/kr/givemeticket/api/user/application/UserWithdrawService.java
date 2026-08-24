@@ -16,7 +16,7 @@ import org.springframework.stereotype.Service;
 /**
  * 회원 탈퇴. 남아 있는 것을 먼저 정리하고 마지막에 개인정보를 지운다.
  *
- * <p>정리 과정에서 환불이 여러 번 나가므로 트랜잭션으로 감싸지 않는다.
+ * <p>정리 과정에서 소셜 연결 끊기(외부 호출)와 건별 상태 전이가 이어지므로 트랜잭션으로 감싸지 않는다.
  * 상태 전이는 각 Persister 가 건별로 짧게 끊는다.
  */
 @Slf4j
@@ -36,7 +36,7 @@ public class UserWithdrawService {
      * 남은 내 신청만 뒤에서 처리하면 된다.
      *
      * <p>소셜 연결 끊기는 그보다도 앞에 둔다. 여기서 실패하면 아직 아무것도 지우지 않은 상태라
-     * 같은 요청을 그대로 재시도할 수 있다. 반대로 뒤에 두면 캠페인 삭제·환불이 이미 나간 뒤에
+     * 같은 요청을 그대로 재시도할 수 있다. 반대로 뒤에 두면 캠페인 삭제가 이미 끝난 뒤에
      * 실패할 수 있고, 되돌릴 방법이 없다. 회원번호도 지우기 전에 읽어야 남아 있다.
      */
     public void withdraw(Long userId) {
@@ -58,7 +58,7 @@ public class UserWithdrawService {
     }
 
     /**
-     * 내가 연 행사는 참가자 전원 취소·환불까지 포함해 지운다. 캠페인 삭제와 같은 경로를 탄다.
+     * 내가 연 행사는 참가자 전원 취소까지 포함해 지운다. 캠페인 삭제와 같은 경로를 탄다.
      */
     private int deleteOwnedCampaigns(Long userId) {
         List<Campaign> owned = campaignRepository.findAllLiveOwnedBy(userId);

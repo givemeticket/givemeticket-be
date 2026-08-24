@@ -41,7 +41,10 @@ services:
         reservations:
           memory: 256m
 
+  # 백엔드는 더 이상 호출하지 않는다. 결함 주입 실험용으로 남겨둔 독립 서비스라
+  # 기본 프로필에서는 뜨지 않는다.
   payment-mock:
+    profiles: ["payment-mock"]
     build: ./payment-mock
     environment:
       PAYMENT_DELAY_MS: ${PAYMENT_DELAY_MS}
@@ -78,7 +81,6 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      PAYMENT_BASE_URL: http://payment-mock:8081
       DB_POOL_SIZE: ${DB_POOL_SIZE}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_ACCESS_TOKEN_EXPIRATION_MS: ${JWT_ACCESS_TOKEN_EXPIRATION_MS:-604800000}
@@ -87,8 +89,6 @@ services:
       KAKAO_ADMIN_KEY: ${KAKAO_ADMIN_KEY:-}
       NAVER_CLIENT_ID: ${NAVER_CLIENT_ID}
       NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET}
-      APPLICATION_HOLD_DURATION: ${APPLICATION_HOLD_DURATION:-2m}
-      APPLICATION_EXPIRE_SCHEDULER_DELAY_MS: ${APPLICATION_EXPIRE_SCHEDULER_DELAY_MS:-10000}
     volumes:
       - backend-logs:/logs
     ports:
@@ -97,8 +97,6 @@ services:
       mysql:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      payment-mock:
         condition: service_healthy
     deploy:
       resources:

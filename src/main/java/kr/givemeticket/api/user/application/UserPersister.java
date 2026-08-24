@@ -23,7 +23,7 @@ public class UserPersister {
 
     /**
      * 개인정보를 지우는 것만 짧은 트랜잭션으로 끊는다.
-     * 앞선 취소·환불이 외부 호출이라 같은 트랜잭션에 묶을 수 없다.
+     * 앞선 소셜 연결 끊기가 외부 호출이라 같은 트랜잭션에 묶을 수 없다.
      */
     @Transactional
     public void withdraw(Long userId) {

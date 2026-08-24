@@ -11,6 +11,17 @@ import org.springframework.web.bind.annotation.PathVariable;
 @Tag(name = "유저 API", description = "계정 관련 API 명세입니다.")
 public interface UserApiSpec {
 
+    @Operation(summary = "내 정보 조회",
+            description = """
+                    액세스 토큰의 주인을 그대로 돌려줍니다. 응답 형태는 사용자 정보 조회와 같습니다.
+
+                    - 프론트가 자기 userId 를 알아내는 통로입니다. 토큰을 직접 디코딩하지 않아도
+                      행사의 ownerId 와 비교해 "내가 만든 행사인지" 같은 판단을 할 수 있습니다
+                    - 토큰이 없거나 잘못됐으면 401 입니다
+                    - 탈퇴 직후에도 토큰이 만료되기 전이면 200 에 withdrawn=true 로 내려갑니다
+                    """)
+    ResponseEntity<GetUserResponse> readMe(@Parameter(hidden = true) @LoginUserId Long userId);
+
     @Operation(summary = "사용자 정보 조회",
             description = """
                     userId 로 사용자의 공개 정보(닉네임·프로필 이미지)를 조회합니다. 인증은 필요 없습니다.
@@ -34,10 +45,10 @@ public interface UserApiSpec {
 
                     - 카카오 계정은 연결까지 끊습니다. 카카오 '연결된 서비스'에서 우리 앱이 사라집니다
                       (네이버는 사용자 토큰이 필요해 연결 끊기를 지원하지 않고, 우리 데이터만 지웁니다)
-                    - 내가 연 행사는 모두 삭제되고, 그 행사의 참가자 전원이 취소·환불됩니다
-                    - 내가 낸 신청은 모두 취소되고 결제한 건은 환불됩니다. 비운 자리는 다른 사람이
-                      신청할 수 있게 재고로 돌아갑니다
-                    - 닉네임·프로필 이미지·소셜 회원번호는 지워집니다. 신청 이력은 정산 추적을 위해 남습니다
+                    - 내가 연 행사는 모두 삭제되고, 그 행사의 참가자 전원이 취소됩니다
+                    - 내가 낸 신청은 모두 취소됩니다. 비운 자리는 다른 사람이 신청할 수 있게
+                      재고로 돌아갑니다
+                    - 닉네임·프로필 이미지·소셜 회원번호는 지워집니다. 신청 이력은 남습니다
                     - 같은 소셜 계정으로 다시 로그인하면 이전 이력이 없는 새 계정으로 가입됩니다
                     - 탈퇴 후에도 기존 액세스 토큰은 만료 전까지 유효합니다. 프론트에서 토큰을 지워야 합니다
 

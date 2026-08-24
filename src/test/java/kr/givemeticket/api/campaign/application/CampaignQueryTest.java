@@ -136,7 +136,7 @@ class CampaignQueryTest {
             Long campaignId, String title, CampaignStatus status, int totalStock, long remaining) {
         Campaign campaign = new Campaign(
                 OWNER_ID, "code" + campaignId, title, CampaignType.TICKET,
-                totalStock, OPEN_AT, false, null);
+                totalStock, OPEN_AT, null);
         TestEntities.with(campaign, "id", campaignId);
         TestEntities.with(campaign, "status", status);
 

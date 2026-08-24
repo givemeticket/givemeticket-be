@@ -109,8 +109,6 @@ public interface CampaignApiSpec {
                     개설자만 호출할 수 있습니다. 신청자가 있어도 삭제되며, 되돌릴 수 없습니다.
 
                     - 남아 있던 신청은 전부 CANCELLED 가 되고 failureReason 에 CAMPAIGN_DELETED 가 찍힙니다
-                    - 결제가 끝난 신청은 환불이 요청됩니다. 환불에 실패해도 삭제와 취소는 되돌리지 않고
-                      로그로 남겨 뒤에서 다시 시도합니다
                     - 삭제된 캠페인을 다시 삭제하면 410 CAMPAIGN_DELETED
                     """)
     ResponseEntity<Void> deleteCampaign(

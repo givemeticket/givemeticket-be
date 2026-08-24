@@ -19,9 +19,6 @@ public record PostCampaignRequest(
         @Future(message = "openAt은 미래 시각이어야 합니다.")
         LocalDateTime openAt,
 
-        @NotNull(message = "requiresPayment는 필수입니다.")
-        Boolean requiresPayment,
-
         @Valid
         CampaignDetailRequest detail
 ) {
@@ -31,7 +28,6 @@ public record PostCampaignRequest(
                 title,
                 totalStock,
                 openAt,
-                requiresPayment,
                 CampaignDetailRequest.toCommandOrNull(detail));
     }
 }
