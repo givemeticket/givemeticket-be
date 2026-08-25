@@ -75,6 +75,9 @@ public class Campaign extends BaseEntity {
         this.status = CampaignStatus.OPEN;
     }
 
+    /**
+     * 신규 신청만 막는다. 이미 확정된 신청은 그대로 유효하므로 취소가 일어나지 않는다.
+     */
     public void close() {
         this.status = CampaignStatus.CLOSED;
     }
@@ -118,6 +121,10 @@ public class Campaign extends BaseEntity {
 
     public boolean isDeleted() {
         return status == CampaignStatus.DELETED;
+    }
+
+    public boolean isClosed() {
+        return status == CampaignStatus.CLOSED;
     }
 
     public boolean isOpen(LocalDateTime now) {

@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import kr.givemeticket.api.campaign.ui.dto.request.PatchCampaignRequest;
 import kr.givemeticket.api.campaign.ui.dto.request.PostCampaignRequest;
+import kr.givemeticket.api.campaign.ui.dto.response.CloseCampaignResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.CreateCampaignResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignStockResponse;
@@ -67,8 +68,10 @@ public interface CampaignApiSpec {
                     - 개설자 정보는 owner(id/nickname/profileImageUrl)에 담깁니다
                     - 카드마다 재고를 따로 부르지 않도록 remainingStock/soldOut 이 함께 내려갑니다.
                       삭제된 행사이거나 재고를 읽지 못하면 두 값이 null 입니다
-                    - owned 에는 삭제한 행사도 status=DELETED 로 남습니다. 목록에서 지우지 않고
-                      "삭제됨"으로 보여주면 됩니다 (participated 는 삭제되면 신청이 취소되므로 빠집니다)
+                    - 삭제한 행사도 status=DELETED 로 남습니다. 목록에서 지우지 않고 "삭제됨"으로
+                      보여주면 됩니다. participated 도 마찬가지로, 주최자가 지운 행사는
+                      myApplicationStatus=CANCELLED 인 채로 남습니다. 다만 내가 직접 취소한 행사는
+                      빠집니다 — 사라진 이유를 이미 알고 있으니까요
                     """)
     ResponseEntity<GetCampaignsResponse> readCampaigns(
             @Parameter(hidden = true) @LoginUserId Long userId,
@@ -102,6 +105,23 @@ public interface CampaignApiSpec {
             @Parameter(description = "캠페인 ID", example = "1")
             @PathVariable("campaignId") Long campaignId,
             @Valid @RequestBody PatchCampaignRequest request
+    );
+
+    @Operation(summary = "캠페인 종료",
+            description = """
+                    개설자만 호출할 수 있습니다. 더 이상 신청을 받지 않고 status 가 CLOSED 가 됩니다.
+
+                    - 이미 확정된 신청은 그대로 유효합니다. 삭제와 달리 취소하지 않습니다
+                    - 잔여 재고는 계속 조회됩니다. 몇 자리가 나갔는지는 종료 후에도 보여야 하기 때문입니다
+                    - 오픈 전(SCHEDULED)인 행사도 종료할 수 있습니다. 그 경우 예정된 시각이 와도 열리지 않습니다
+                    - 되돌리는 API 는 없습니다. 종료된 행사는 오픈 시각도 바꿀 수 없고
+                      (409 `CAMPAIGN_CLOSED`), 다시 열려면 새로 만들어야 합니다
+                    - 두 번 호출해도 같은 결과입니다
+                    """)
+    ResponseEntity<CloseCampaignResponse> closeCampaign(
+            @Parameter(hidden = true) @LoginUserId Long userId,
+            @Parameter(description = "캠페인 ID", example = "1")
+            @PathVariable("campaignId") Long campaignId
     );
 
     @Operation(summary = "캠페인 삭제",

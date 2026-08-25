@@ -39,6 +39,15 @@ public class JpaApplicationRepository implements ApplicationRepository {
     }
 
     @Override
+    public List<Application> findAllByUserIdAndStatusInOrFailureReasonIn(
+            Long userId,
+            Collection<ApplicationStatus> statuses,
+            Collection<FailureReason> failureReasons) {
+        return springDataJpaApplicationRepository.findAllByUserIdAndStatusInOrFailureReasonIn(
+                userId, statuses, failureReasons);
+    }
+
+    @Override
     public long countByCampaignIdAndStatusIn(Long campaignId, Collection<ApplicationStatus> statuses) {
         return springDataJpaApplicationRepository.countByCampaignIdAndStatusIn(campaignId, statuses);
     }
