@@ -20,12 +20,17 @@ public interface StockRepository {
      */
     void increaseBy(Long campaignId, int delta);
 
+    /**
+     * 초기화된 적 없거나 삭제된 캠페인이면 null.
+     */
     Long getRemaining(Long campaignId);
 
     /**
-     * 목록 조회용. 캠페인 수만큼 Redis를 왕복하지 않는다.
+     * 목록 화면용 일괄 조회. 캠페인 수만큼 왕복하지 않도록 한 번에 읽는다.
+     *
+     * @return 재고가 있는 캠페인만 담긴다. 삭제된 캠페인은 키가 없으므로 빠진다
      */
-    Map<Long, Long> getRemaining(Collection<Long> campaignIds);
+    Map<Long, Long> getRemainingAll(Collection<Long> campaignIds);
 
     void remove(Long campaignId);
 }

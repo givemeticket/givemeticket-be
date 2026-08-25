@@ -9,6 +9,7 @@ import kr.givemeticket.api.campaign.ui.dto.request.PatchCampaignRequest;
 import kr.givemeticket.api.campaign.ui.dto.request.PostCampaignRequest;
 import kr.givemeticket.api.campaign.ui.dto.response.CreateCampaignResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignResponse;
+import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignStockResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignsResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.PatchCampaignResponse;
 import kr.givemeticket.api.global.auth.annotation.LoginUserId;
@@ -30,20 +31,45 @@ public interface CampaignApiSpec {
     );
 
     @Operation(summary = "캠페인 상세 조회",
-            description = "공유 링크의 shortCode로 조회합니다. 인증은 선택이며, 토큰 유무와 소유·신청 여부에 따라 "
-                    + "viewerRole이 GUEST / VIEWER / PARTICIPANT / OWNER로 내려갑니다. "
-                    + "토큰을 보냈는데 유효하지 않으면 401입니다. "
-                    + "행사 안내 정보는 detail에 담기며 등록된 게 없으면 null입니다. "
-                    + "삭제된 캠페인은 410을 반환합니다.")
+            description = """
+                    공유 링크의 shortCode로 조회합니다. 인증은 선택이며, 토큰 유무와 소유·신청 여부에 따라
+                    viewerRole이 GUEST / VIEWER / PARTICIPANT / OWNER로 내려갑니다.
+                    토큰을 보냈는데 유효하지 않으면 401입니다.
+
+                    - 개설자 정보는 owner(id/nickname/profileImageUrl)에 담깁니다
+                    - 잔여 재고(remainingStock)와 매진 여부(soldOut)가 함께 내려갑니다. 첫 화면을 한 번에
+                      그리기 위한 조회 시점 스냅샷이며, 이후 갱신은 GET /campaigns/{campaignId}/stock 으로
+                      폴링하세요. 재고를 읽지 못한 경우에도 조회는 성공하고 두 값이 null 로 옵니다
+                    - 행사 안내 정보는 detail에 담기며 등록된 게 없으면 null입니다
+                    - 삭제된 캠페인은 410을 반환합니다
+                    """)
     ResponseEntity<GetCampaignResponse> readCampaign(
             @Parameter(hidden = true) @LoginUserId(required = false) Long userId,
             @Parameter(description = "공유 링크 코드", example = "3AbCdEfGh1")
             @PathVariable("shortCode") String shortCode
     );
 
+    @Operation(summary = "잔여 재고 조회",
+            description = "잔여 재고와 매진 여부만 내려주는 폴링용 API입니다. 상세·목록 응답에도 같은 값이 "
+                    + "들어 있지만 그건 첫 화면용 스냅샷이고, 이후 갱신은 이 API로 받으세요. "
+                    + "DB를 거치지 않고 Redis만 읽습니다. "
+                    + "인증은 필요 없습니다. 없거나 삭제된 캠페인은 404입니다.")
+    ResponseEntity<GetCampaignStockResponse> readCampaignStock(
+            @Parameter(description = "캠페인 ID", example = "1")
+            @PathVariable("campaignId") Long campaignId
+    );
+
     @Operation(summary = "캠페인 목록 조회",
-            description = "owned는 내가 만든 행사, participated는 내가 참여중인 행사(나의 티켓)입니다. "
-                    + "목록에는 카드에 필요한 eventAt/location/imageUrl만 펼쳐지고 본문은 상세 조회에서만 내려갑니다.")
+            description = """
+                    owned는 내가 만든 행사, participated는 내가 참여중인 행사(나의 티켓)입니다.
+
+                    - 목록에는 카드에 필요한 eventAt/location/imageUrl만 펼쳐지고 본문은 상세 조회에서만 내려갑니다
+                    - 개설자 정보는 owner(id/nickname/profileImageUrl)에 담깁니다
+                    - 카드마다 재고를 따로 부르지 않도록 remainingStock/soldOut 이 함께 내려갑니다.
+                      삭제된 행사이거나 재고를 읽지 못하면 두 값이 null 입니다
+                    - owned 에는 삭제한 행사도 status=DELETED 로 남습니다. 목록에서 지우지 않고
+                      "삭제됨"으로 보여주면 됩니다 (participated 는 삭제되면 신청이 취소되므로 빠집니다)
+                    """)
     ResponseEntity<GetCampaignsResponse> readCampaigns(
             @Parameter(hidden = true) @LoginUserId Long userId,
             @Parameter(description = "조회 범위", example = "owned",
@@ -52,9 +78,25 @@ public interface CampaignApiSpec {
     );
 
     @Operation(summary = "캠페인 수정",
-            description = "개설자만 호출할 수 있습니다. 오픈 시각은 오픈 전에 더 늦은 시각으로만, "
-                    + "정원은 늘리는 방향으로만 바꿀 수 있습니다. 매진 상태에서 증원하면 자동으로 다시 신청 가능해집니다. "
-                    + "detail은 지정하면 통째로 교체되며, 빈 값으로 보내면 안내 정보가 지워집니다.")
+            description = """
+                    개설자만 호출할 수 있습니다. 제한은 이미 오픈된 행사에만 걸립니다.
+
+                    아직 오픈 전(status=SCHEDULED)이면
+                    - openAt 은 미래 시각이기만 하면 앞당기든 미루든 자유입니다
+                    - totalStock 도 자유롭습니다. 신청자가 없으므로 줄여도 됩니다
+
+                    이미 오픈된 뒤(status=OPEN)라면
+                    - openAt 은 지금 설정된 시각보다 뒤로만 옮길 수 있습니다. 미루면 접수가 멈추고
+                      status 가 SCHEDULED 로 돌아가며, 새 오픈 시각이 되면 다시 열립니다.
+                      이미 들어온 신청은 그대로 유지됩니다. 앞당기려 하면 409 `OPEN_AT_NOT_DELAYABLE`
+                    - totalStock 은 늘리는 것만 됩니다. 줄이려 하면 409 `TOTAL_STOCK_NOT_INCREASABLE`.
+                      매진 상태에서 증원하면 자동으로 다시 신청 가능해집니다
+
+                    지금과 같은 값을 보내는 것은 오류가 아니라 무시입니다. 폼 전체를 그대로 보내도
+                    정원만 바꾸거나 오픈 시각만 바꾸는 요청이 그대로 통과합니다.
+
+                    detail은 지정하면 통째로 교체되며, 빈 값으로 보내면 안내 정보가 지워집니다.
+                    """)
     ResponseEntity<PatchCampaignResponse> updateCampaign(
             @Parameter(hidden = true) @LoginUserId Long userId,
             @Parameter(description = "캠페인 ID", example = "1")

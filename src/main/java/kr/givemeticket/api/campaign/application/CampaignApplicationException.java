@@ -44,17 +44,23 @@ public class CampaignApplicationException extends BusinessException {
 
     public static CampaignApplicationException nothingToUpdate() {
         return new CampaignApplicationException(HttpStatus.BAD_REQUEST, "NOTHING_TO_UPDATE",
-                "openAt 또는 totalStock 중 하나는 지정해야 합니다.");
+                "openAt, totalStock, detail 중 하나는 지정해야 합니다.");
     }
 
+    /**
+     * 이미 열린 행사에만 걸린다. 오픈 전 행사는 미래이기만 하면 어디로든 옮길 수 있다.
+     */
     public static CampaignApplicationException openAtNotDelayable() {
         return new CampaignApplicationException(HttpStatus.CONFLICT, "OPEN_AT_NOT_DELAYABLE",
-                "오픈 시각은 오픈 전에, 현재보다 늦은 시각으로만 변경할 수 있습니다.");
+                "이미 오픈된 행사의 오픈 시각은 기존보다 늦은 시각으로만 변경할 수 있습니다.");
     }
 
+    /**
+     * 이미 열린 행사에만 걸린다. 오픈 전 행사는 정원을 줄일 수도 있다.
+     */
     public static CampaignApplicationException totalStockNotIncreasable() {
         return new CampaignApplicationException(HttpStatus.CONFLICT, "TOTAL_STOCK_NOT_INCREASABLE",
-                "정원은 현재보다 늘리는 것만 가능합니다.");
+                "이미 오픈된 행사의 정원은 늘리는 것만 가능합니다.");
     }
 
     public static CampaignApplicationException shortCodeGenerationFailed() {

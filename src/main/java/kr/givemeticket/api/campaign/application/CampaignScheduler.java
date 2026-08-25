@@ -32,8 +32,6 @@ public class CampaignScheduler {
             campaign.open();
             campaignStateRepository.save(campaign.getId(),
                     new CampaignState(campaign.isRequiresPayment(), campaign.getTotalStock()));
-            // 오픈 직전은 조회가 가장 몰리는 구간이다. 캐시가 SCHEDULED 로 굳어 있으면
-            // 열린 행사를 닫혀 있다고 보여 준다.
             campaignCacheEvictor.evict(campaign.getShortCode());
             log.info("campaign opened: id={}, title={}", campaign.getId(), campaign.getTitle());
         }

@@ -34,6 +34,15 @@ public class LoginProviderException extends ExternalApiException {
                 "소셜 로그인 회원 정보를 가져오지 못했습니다.");
     }
 
+    /**
+     * 탈퇴 중 소셜 연결 끊기가 실패한 경우. 아직 우리 데이터는 손대지 않은 상태라
+     * 같은 요청을 그대로 다시 보내면 된다.
+     */
+    public static LoginProviderException unlinkFailed() {
+        return new LoginProviderException(HttpStatus.BAD_GATEWAY, "LOGIN_PROVIDER_UNLINK_ERROR",
+                "소셜 계정 연결 해제에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+    }
+
     public static LoginProviderException publicKeyRequestFailed() {
         return new LoginProviderException(HttpStatus.BAD_GATEWAY, "LOGIN_PROVIDER_KEY_ERROR",
                 "소셜 로그인 공개키를 가져오지 못했습니다.");

@@ -9,6 +9,7 @@ import kr.givemeticket.api.campaign.ui.dto.request.PatchCampaignRequest;
 import kr.givemeticket.api.campaign.ui.dto.request.PostCampaignRequest;
 import kr.givemeticket.api.campaign.ui.dto.response.CreateCampaignResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignResponse;
+import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignStockResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignsResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.PatchCampaignResponse;
 import kr.givemeticket.api.global.log.BusinessLogging;
@@ -54,6 +55,15 @@ public class CampaignController implements CampaignApiSpec {
                 campaignService.getCampaignDetail(shortCode, userId));
 
         return ResponseEntity.ok(getCampaignResponse);
+    }
+
+    @Override
+    @GetMapping("campaigns/{campaignId}/stock")
+    public ResponseEntity<GetCampaignStockResponse> readCampaignStock(
+            @PathVariable("campaignId") Long campaignId
+    ) {
+        return ResponseEntity.ok(
+                GetCampaignStockResponse.from(campaignService.getStock(campaignId)));
     }
 
     @Override
