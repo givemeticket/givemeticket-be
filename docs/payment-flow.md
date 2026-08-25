@@ -12,7 +12,7 @@
 >   취소는 재고만 되돌리고 끝난다
 > - `payment-mock` 모듈은 남아 있지만 백엔드가 호출하지 않는다. 외부 의존 장애를 흉내 내는
 >   독립 서버로만 쓰며, compose 에서는 `--profile payment-mock` 으로만 뜬다
-> - 기존 DB 정리는 `docs/sql/2026-08-24-remove-payment.sql`
+> - 기존 DB 정리는 `docs/sql/2026-08-24-remove-payment-{1-before,2-after}-deploy.sql`
 >
 > 아래 내용은 결제를 다시 붙일 때 되짚어볼 설계 기록으로만 남겨둔다.
 > 특히 5절(실패 분기 매트릭스)과 7절(멱등성)은 그때 그대로 다시 필요해진다.
