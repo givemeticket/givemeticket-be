@@ -58,6 +58,15 @@ external:
     connect-timeout: ${NAVER_CONNECT_TIMEOUT:2s}
     read-timeout: ${NAVER_READ_TIMEOUT:3s}
 
+campaign:
+  cache:
+    # none | redis | local
+    mode: ${CAMPAIGN_CACHE_MODE:local}
+    ttl: ${CAMPAIGN_CACHE_TTL:10m}
+    local:
+      ttl: ${CAMPAIGN_LOCAL_CACHE_TTL:30s}
+      max-size: ${CAMPAIGN_LOCAL_CACHE_MAX_SIZE:6000}
+
 springdoc:
   api-docs:
     enabled: ${SWAGGER_ENABLED:true}

@@ -3,6 +3,7 @@ package kr.givemeticket.api.campaign.application;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import kr.givemeticket.api.apply.application.ApplicationService;
@@ -19,9 +20,12 @@ import kr.givemeticket.api.campaign.application.dto.response.CampaignResponse;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignStockResponse;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignSummaryResponse;
 import kr.givemeticket.api.campaign.domain.Campaign;
+import kr.givemeticket.api.campaign.domain.CampaignCacheRepository;
 import kr.givemeticket.api.campaign.domain.CampaignRepository;
+import kr.givemeticket.api.campaign.domain.CampaignSnapshot;
 import kr.givemeticket.api.campaign.domain.CampaignState;
 import kr.givemeticket.api.campaign.domain.CampaignStateRepository;
+import kr.givemeticket.api.campaign.domain.CampaignStatus;
 import kr.givemeticket.api.campaign.domain.CampaignType;
 import kr.givemeticket.api.campaign.domain.ShortCodeGenerator;
 import kr.givemeticket.api.campaign.domain.StockRepository;
@@ -52,6 +56,8 @@ public class CampaignService {
     private final ApplicationService applicationService;
     private final StockRepository stockRepository;
     private final CampaignStateRepository campaignStateRepository;
+    private final CampaignCacheRepository campaignCacheRepository;
+    private final CampaignCacheEvictor campaignCacheEvictor;
     private final ShortCodeGenerator shortCodeGenerator;
     private final UserService userService;
 
@@ -92,14 +98,13 @@ public class CampaignService {
      */
     @Transactional(readOnly = true)
     public CampaignDetailResponse getCampaignDetail(String shortCode, Long userId) {
-        Campaign campaign = campaignRepository.findByShortCode(shortCode)
-                .orElseThrow(CampaignApplicationException::campaignNotFound);
-        if (campaign.isDeleted()) {
+        CampaignSnapshot campaign = findCachedCampaign(shortCode);
+        if (campaign.status() == CampaignStatus.DELETED) {
             throw CampaignApplicationException.campaignDeleted();
         }
 
-        CampaignOwnerInfo owner = findOwner(campaign.getOwnerId());
-        Long remainingStock = findRemainingStock(campaign.getId());
+        CampaignOwnerInfo owner = findOwner(campaign.ownerId());
+        Long remainingStock = findRemainingStock(campaign.id());
 
         if (userId == null) {
             return CampaignDetailResponse.of(
@@ -107,12 +112,12 @@ public class CampaignService {
         }
 
         Application mine = applicationRepository
-                .findByCampaignIdAndUserId(campaign.getId(), userId)
+                .findByCampaignIdAndUserId(campaign.id(), userId)
                 .orElse(null);
 
         if (campaign.isOwnedBy(userId)) {
             long confirmedCount = applicationRepository
-                    .countByCampaignIdAndStatusIn(campaign.getId(), CONFIRMED_ONLY);
+                    .countByCampaignIdAndStatusIn(campaign.id(), CONFIRMED_ONLY);
             return CampaignDetailResponse.of(
                     campaign, owner, remainingStock, ViewerRole.OWNER, mine, confirmedCount);
         }
@@ -171,6 +176,22 @@ public class CampaignService {
                 .toList();
     }
 
+    private CampaignSnapshot findCachedCampaign(String shortCode) {
+        Optional<CampaignSnapshot> cached = campaignCacheRepository.find(shortCode);
+        if (cached.isPresent()) {
+            return cached.get();
+        }
+
+        Campaign campaign = campaignRepository.findByShortCode(shortCode)
+                .orElseThrow(CampaignApplicationException::campaignNotFound);
+
+        CampaignSnapshot snapshot = CampaignSnapshot.from(campaign);
+        if (snapshot.isCacheable(LocalDateTime.now())) {
+            campaignCacheRepository.save(snapshot);
+        }
+        return snapshot;
+    }
+
     private CampaignOwnerInfo findOwner(Long ownerId) {
         return CampaignOwnerInfo.of(ownerId, userService.findUser(ownerId).orElse(null));
     }
@@ -224,6 +245,8 @@ public class CampaignService {
         if (request.detail() != null) {
             campaign.changeDetail(request.detail().toCampaignDetail());
         }
+
+        campaignCacheEvictor.evict(campaign.getShortCode());
 
         return CampaignResponse.of(campaign);
     }
@@ -299,6 +322,8 @@ public class CampaignService {
         // 신규 신청을 먼저 막는다. 상태부터 바꾸면 그 사이에 들어온 신청이 살아남는다.
         campaignStateRepository.remove(campaignId);
 
+        campaignCacheEvictor.evict(campaign.getShortCode());
+
         if (!campaign.isClosed()) {
             campaign.close();
             log.info("campaign closed: campaignId={}, ownerId={}", campaignId, userId);
@@ -317,11 +342,14 @@ public class CampaignService {
 
         // 신규 신청을 먼저 막는다. 이걸 뒤로 미루면 취소하는 사이에 들어온 신청이 살아남는다.
         campaignStateRepository.remove(campaignId);
+        campaignCacheEvictor.evict(campaign.getShortCode());
 
         if (campaignPersister.markDeleted(campaignId) == 0) {
             // 그 사이 다른 요청이 이미 지웠다. 취소를 두 번 돌리지 않는다.
             throw CampaignApplicationException.campaignDeleted();
         }
+
+        campaignCacheEvictor.evict(campaign.getShortCode());
 
         int cancelled = applicationService.cancelAllByCampaignDeletion(campaign);
         stockRepository.remove(campaignId);

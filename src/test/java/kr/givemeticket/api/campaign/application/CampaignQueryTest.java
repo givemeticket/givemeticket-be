@@ -10,6 +10,8 @@ import kr.givemeticket.api.apply.domain.FailureReason;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignDetailResponse;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignSummaryResponse;
 import kr.givemeticket.api.campaign.domain.Campaign;
+import kr.givemeticket.api.campaign.domain.CampaignCacheRepository;
+import kr.givemeticket.api.campaign.infrastructure.NoOpCampaignCacheRepository;
 import kr.givemeticket.api.campaign.domain.CampaignStatus;
 import kr.givemeticket.api.campaign.domain.CampaignType;
 import kr.givemeticket.api.login.domain.Provider;
@@ -33,8 +35,11 @@ class CampaignQueryTest {
     private final FakeUserRepository userRepository = new FakeUserRepository();
     private final FakeApplicationRepository applicationRepository = new FakeApplicationRepository();
 
+    private final CampaignCacheRepository noOpCache = new NoOpCampaignCacheRepository();
+
     private final CampaignService campaignService = new CampaignService(
-            campaignRepository, null, applicationRepository, null, stockRepository, null, null,
+            campaignRepository, null, applicationRepository, null, stockRepository, null,
+            noOpCache, new CampaignCacheEvictor(noOpCache), null,
             new UserService(userRepository, null));
 
     @Test

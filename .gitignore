@@ -27,3 +27,6 @@ Thumbs.db
 # ---- Misc ----
 *.pid
 
+
+# ---- 부하 테스트 결과 ----
+load-test/results/

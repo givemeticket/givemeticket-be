@@ -1,11 +1,15 @@
 package kr.givemeticket.api.global.config;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import kr.givemeticket.api.campaign.domain.CampaignSnapshot;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.data.redis.core.script.RedisScript;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 @Configuration
 public class RedisConfig {
@@ -13,6 +17,28 @@ public class RedisConfig {
     @Bean
     public StringRedisTemplate stringRedisTemplate(RedisConnectionFactory connectionFactory) {
         return new StringRedisTemplate(connectionFactory);
+    }
+
+    /**
+     * 캠페인 캐시 전용 템플릿. 값은 gzip 으로 눌러서 넣는다.
+     *
+     * <p>ObjectMapper 를 애플리케이션 공용 빈에서 가져오지 않고 여기서 따로 만든다.
+     * 응답 JSON 설정을 바꿨다고 캐시에 이미 쌓인 값의 포맷이 조용히 달라지면 안 되기 때문이다.
+     */
+    @Bean
+    public RedisTemplate<String, CampaignSnapshot> campaignCacheRedisTemplate(
+            RedisConnectionFactory connectionFactory,
+            MeterRegistry meterRegistry
+    ) {
+        RedisTemplate<String, CampaignSnapshot> template = new RedisTemplate<>();
+        template.setConnectionFactory(connectionFactory);
+        template.setKeySerializer(new StringRedisSerializer());
+        template.setValueSerializer(new GzipRedisSerializer<>(
+                CampaignSnapshot.class,
+                GzipRedisSerializer.defaultObjectMapper(),
+                meterRegistry,
+                "campaign"));
+        return template;
     }
 
     @Bean

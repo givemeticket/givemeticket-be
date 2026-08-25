@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDateTime;
 import kr.givemeticket.api.campaign.application.dto.request.CampaignUpdateRequest;
+import kr.givemeticket.api.campaign.domain.CampaignCacheRepository;
+import kr.givemeticket.api.campaign.infrastructure.NoOpCampaignCacheRepository;
 import kr.givemeticket.api.campaign.domain.Campaign;
 import kr.givemeticket.api.campaign.domain.CampaignState;
 import kr.givemeticket.api.campaign.domain.CampaignStatus;
@@ -26,8 +28,11 @@ class CampaignCloseTest {
     private final FakeStockRepository stockRepository = new FakeStockRepository();
     private final FakeCampaignStateRepository stateRepository = new FakeCampaignStateRepository();
 
+    private final CampaignCacheRepository noOpCache = new NoOpCampaignCacheRepository();
+
     private final CampaignService campaignService = new CampaignService(
-            campaignRepository, null, null, null, stockRepository, stateRepository, null, null);
+            campaignRepository, null, null, null, stockRepository, stateRepository,
+            noOpCache, new CampaignCacheEvictor(noOpCache), null, null);
 
     @Test
     @DisplayName("종료하면 상태가 CLOSED 가 되고 신청 게이트가 사라진다")

@@ -8,6 +8,8 @@ import java.time.LocalDateTime;
 import kr.givemeticket.api.campaign.application.dto.request.CampaignUpdateRequest;
 import kr.givemeticket.api.campaign.domain.Campaign;
 import kr.givemeticket.api.campaign.domain.CampaignState;
+import kr.givemeticket.api.campaign.domain.CampaignCacheRepository;
+import kr.givemeticket.api.campaign.infrastructure.NoOpCampaignCacheRepository;
 import kr.givemeticket.api.campaign.domain.CampaignStatus;
 import kr.givemeticket.api.campaign.domain.CampaignType;
 import org.junit.jupiter.api.DisplayName;
@@ -28,8 +30,11 @@ class CampaignUpdateTest {
     private final FakeStockRepository stockRepository = new FakeStockRepository();
     private final FakeCampaignStateRepository stateRepository = new FakeCampaignStateRepository();
 
+    private final CampaignCacheRepository noOpCache = new NoOpCampaignCacheRepository();
+
     private final CampaignService campaignService = new CampaignService(
-            campaignRepository, null, null, null, stockRepository, stateRepository, null, null);
+            campaignRepository, null, null, null, stockRepository, stateRepository,
+            noOpCache, new CampaignCacheEvictor(noOpCache), null, null);
 
     @Nested
     @DisplayName("오픈 전 행사는")

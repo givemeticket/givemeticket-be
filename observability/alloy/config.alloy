@@ -52,6 +52,49 @@ loki.process "app" {
   }
 }
 
+// GC 로그도 같은 볼륨에 있으니 함께 tail 한다. Grafana 에서 GC 지표 그래프와
+// "GC(12) Pause Young ... 13ms" 원문을 한 화면에서 대조하기 위해서다.
+// 상세 로그(gc-detail.log)는 양이 많아 보내지 않는다. 필요하면 컨테이너에서 직접 읽는다.
+local.file_match "gc_logs" {
+  path_targets = [{ __path__ = "/logs/gc.log" }]
+  sync_period  = "10s"
+}
+
+loki.source.file "gc" {
+  targets    = local.file_match.gc_logs.targets
+  forward_to = [loki.process.gc.receiver]
+  // gc.log 는 볼륨에 며칠씩 쌓여 있다. 처음 붙을 때 과거를 다 밀어 넣으면
+  // Loki 가 reject_old_samples 로 400 을 뱉으므로 끝에서부터 읽는다.
+  tail_from_end = true
+}
+
+loki.process "gc" {
+  forward_to = [loki.write.default.receiver]
+
+  // [2026-08-16T04:56:25.511+0000][26885.728s][info][gc] GC(42) Pause Young ...
+  stage.regex {
+    expression = "^\\[(?P<ts>[^\\]]+)\\]\\[[^\\]]+\\]\\[(?P<level>[^\\]]+)\\]"
+  }
+
+  // -Xlog 의 time 데코레이터는 오프셋을 +0000 처럼 콜론 없이 찍어서 RFC3339 로는 안 읽힌다.
+  stage.timestamp {
+    source = "ts"
+    format = "2006-01-02T15:04:05.000-0700"
+  }
+
+  stage.labels {
+    values = { level = "level" }
+  }
+
+  stage.static_labels {
+    values = {
+      service  = "givemeticket-jvm",
+      log_type = "gc",
+      env      = sys.env("ALLOY_ENV"),
+    }
+  }
+}
+
 loki.write "default" {
   endpoint {
     url        = "http://loki:3100/loki/api/v1/push"

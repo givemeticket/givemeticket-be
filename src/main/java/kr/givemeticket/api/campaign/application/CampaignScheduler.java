@@ -20,6 +20,7 @@ public class CampaignScheduler {
 
     private final CampaignRepository campaignRepository;
     private final CampaignStateRepository campaignStateRepository;
+    private final CampaignCacheEvictor campaignCacheEvictor;
 
     @Scheduled(fixedDelayString = "${campaign.open-scheduler-delay-ms:1000}")
     @Transactional
@@ -31,6 +32,7 @@ public class CampaignScheduler {
             campaign.open();
             campaignStateRepository.save(campaign.getId(),
                     new CampaignState(campaign.getTotalStock()));
+            campaignCacheEvictor.evict(campaign.getShortCode());
             log.info("campaign opened: id={}, title={}", campaign.getId(), campaign.getTitle());
         }
     }

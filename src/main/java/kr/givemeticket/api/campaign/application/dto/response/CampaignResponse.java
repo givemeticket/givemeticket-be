@@ -2,6 +2,7 @@ package kr.givemeticket.api.campaign.application.dto.response;
 
 import java.time.LocalDateTime;
 import kr.givemeticket.api.campaign.domain.Campaign;
+import kr.givemeticket.api.campaign.domain.CampaignSnapshot;
 import kr.givemeticket.api.campaign.domain.CampaignStatus;
 import kr.givemeticket.api.campaign.domain.CampaignType;
 
@@ -18,16 +19,20 @@ public record CampaignResponse(
 ) {
 
     public static CampaignResponse of(Campaign campaign) {
+        return of(CampaignSnapshot.from(campaign));
+    }
+
+    public static CampaignResponse of(CampaignSnapshot campaign) {
         return new CampaignResponse(
-                campaign.getId(),
-                campaign.getOwnerId(),
-                campaign.getShortCode(),
-                campaign.getTitle(),
-                campaign.getType(),
-                campaign.getTotalStock(),
-                campaign.getOpenAt(),
-                campaign.getStatus(),
-                CampaignDetailInfo.from(campaign.getDetail())
+                campaign.id(),
+                campaign.ownerId(),
+                campaign.shortCode(),
+                campaign.title(),
+                campaign.type(),
+                campaign.totalStock(),
+                campaign.openAt(),
+                campaign.status(),
+                CampaignDetailInfo.from(campaign.detail())
         );
     }
 }
