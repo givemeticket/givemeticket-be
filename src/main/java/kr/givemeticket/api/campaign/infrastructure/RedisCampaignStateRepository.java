@@ -13,7 +13,6 @@ import org.springframework.stereotype.Repository;
 public class RedisCampaignStateRepository implements CampaignStateRepository {
 
     private static final String STATE_KEY_PREFIX = "campaign:state:";
-    private static final String FIELD_REQUIRES_PAYMENT = "requiresPayment";
     private static final String FIELD_TOTAL_STOCK = "totalStock";
 
     private final StringRedisTemplate stringRedisTemplate;
@@ -21,7 +20,6 @@ public class RedisCampaignStateRepository implements CampaignStateRepository {
     @Override
     public void save(Long campaignId, CampaignState state) {
         stringRedisTemplate.opsForHash().putAll(key(campaignId), Map.of(
-                FIELD_REQUIRES_PAYMENT, String.valueOf(state.requiresPayment()),
                 FIELD_TOTAL_STOCK, String.valueOf(state.totalStock())
         ));
     }
@@ -33,7 +31,6 @@ public class RedisCampaignStateRepository implements CampaignStateRepository {
             return Optional.empty();
         }
         return Optional.of(new CampaignState(
-                Boolean.parseBoolean((String) entries.get(FIELD_REQUIRES_PAYMENT)),
                 Integer.parseInt((String) entries.get(FIELD_TOTAL_STOCK))
         ));
     }

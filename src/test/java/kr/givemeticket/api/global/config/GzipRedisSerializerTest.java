@@ -42,7 +42,7 @@ class GzipRedisSerializerTest {
     void roundTripWithoutDetail() {
         CampaignSnapshot original = new CampaignSnapshot(
                 1L, 2L, "abc", "제목", CampaignType.TICKET, 100,
-                LocalDateTime.of(2026, 9, 1, 12, 0), true, CampaignStatus.OPEN, null);
+                LocalDateTime.of(2026, 9, 1, 12, 0), CampaignStatus.OPEN, null);
 
         assertThat(serializer.deserialize(serializer.serialize(original))).isEqualTo(original);
     }
@@ -75,7 +75,7 @@ class GzipRedisSerializerTest {
 
         assertThat(fields).containsExactlyInAnyOrder(
                 "id", "ownerId", "shortCode", "title", "type", "totalStock",
-                "openAt", "requiresPayment", "status", "detail");
+                "openAt", "status", "detail");
     }
 
     @Test
@@ -94,7 +94,7 @@ class GzipRedisSerializerTest {
     private CampaignSnapshot snapshot(String content, LocalDateTime eventAt) {
         return new CampaignSnapshot(
                 1L, 2L, "abcd1234", "행사 제목", CampaignType.TICKET, 100,
-                LocalDateTime.of(2026, 9, 1, 12, 0), true, CampaignStatus.OPEN,
+                LocalDateTime.of(2026, 9, 1, 12, 0), CampaignStatus.OPEN,
                 new CampaignSnapshot.Detail(
                         content, eventAt, eventAt.plusHours(2),
                         "올림픽공원", "서울시 송파구", "https://img.example/1.png", "010-0000-0000", 15_000));

@@ -14,7 +14,6 @@ public record CampaignResponse(
         CampaignType type,
         int totalStock,
         LocalDateTime openAt,
-        boolean requiresPayment,
         CampaignStatus status,
         CampaignDetailInfo detail
 ) {
@@ -32,7 +31,6 @@ public record CampaignResponse(
                 campaign.type(),
                 campaign.totalStock(),
                 campaign.openAt(),
-                campaign.requiresPayment(),
                 campaign.status(),
                 CampaignDetailInfo.from(campaign.detail())
         );

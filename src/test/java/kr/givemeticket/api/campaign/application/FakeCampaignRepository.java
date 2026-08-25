@@ -57,7 +57,9 @@ class FakeCampaignRepository implements CampaignRepository {
 
     @Override
     public List<Campaign> findAllByIdIn(Collection<Long> campaignIds) {
-        throw new UnsupportedOperationException();
+        return campaigns.values().stream()
+                .filter(campaign -> campaignIds.contains(campaign.getId()))
+                .toList();
     }
 
     @Override

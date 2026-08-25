@@ -73,7 +73,7 @@ class SnapshotFootprintTest {
         return new CampaignSnapshot(
                 (long) i, 1L, "code" + i, "2026 서울재즈페스티벌 얼리버드 " + i,
                 CampaignType.TICKET, 500,
-                LocalDateTime.of(2026, 9, 1, 12, 0), true, CampaignStatus.OPEN,
+                LocalDateTime.of(2026, 9, 1, 12, 0), CampaignStatus.OPEN,
                 new CampaignSnapshot.Detail(
                         content,
                         LocalDateTime.of(2026, 9, 10, 19, 0),

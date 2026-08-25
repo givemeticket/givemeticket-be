@@ -45,7 +45,7 @@ class CampaignSnapshotTest {
     @DisplayName("엔티티에서 뜬 스냅샷에 재고는 담기지 않는다")
     void doesNotCarryRemainingStock() {
         Campaign campaign = new Campaign(
-                1L, "abcd1234", "제목", CampaignType.TICKET, 100, NOW, true, null);
+                1L, "abcd1234", "제목", CampaignType.TICKET, 100, NOW, null);
 
         CampaignSnapshot snapshot = CampaignSnapshot.from(campaign);
 
@@ -59,6 +59,6 @@ class CampaignSnapshotTest {
                 ? null
                 : new CampaignSnapshot.Detail(null, null, eventEndAt, null, null, null, null, null);
         return new CampaignSnapshot(
-                1L, 2L, "abcd1234", "제목", CampaignType.TICKET, 100, NOW, true, status, detail);
+                1L, 2L, "abcd1234", "제목", CampaignType.TICKET, 100, NOW, status, detail);
     }
 }

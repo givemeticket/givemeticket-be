@@ -9,7 +9,6 @@ import kr.givemeticket.api.apply.domain.ApplicationRepository;
 import kr.givemeticket.api.apply.domain.ApplicationStatus;
 import kr.givemeticket.api.apply.domain.FailureReason;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -40,8 +39,12 @@ public class JpaApplicationRepository implements ApplicationRepository {
     }
 
     @Override
-    public List<Application> findExpiredPending(LocalDateTime now, int limit) {
-        return springDataJpaApplicationRepository.findExpiredPending(now, PageRequest.of(0, limit));
+    public List<Application> findAllByUserIdAndStatusInOrFailureReasonIn(
+            Long userId,
+            Collection<ApplicationStatus> statuses,
+            Collection<FailureReason> failureReasons) {
+        return springDataJpaApplicationRepository.findAllByUserIdAndStatusInOrFailureReasonIn(
+                userId, statuses, failureReasons);
     }
 
     @Override
@@ -56,33 +59,15 @@ public class JpaApplicationRepository implements ApplicationRepository {
     }
 
     @Override
+    public int cancelIfConfirmed(Long applicationId) {
+        return springDataJpaApplicationRepository.cancelIfConfirmed(
+                applicationId, LocalDateTime.now());
+    }
+
+    @Override
     public int cancelWithReason(Long applicationId, Collection<ApplicationStatus> statuses,
                                 FailureReason reason) {
         return springDataJpaApplicationRepository.cancelWithReason(
                 applicationId, statuses, reason, LocalDateTime.now());
-    }
-
-    @Override
-    public int confirmIfPending(Long applicationId, String transactionId) {
-        return springDataJpaApplicationRepository.confirmIfPending(
-                applicationId, transactionId, LocalDateTime.now());
-    }
-
-    @Override
-    public int failIfPending(Long applicationId, FailureReason reason) {
-        return springDataJpaApplicationRepository.failIfPending(
-                applicationId, reason, LocalDateTime.now());
-    }
-
-    @Override
-    public int markUnknownIfPending(Long applicationId) {
-        return springDataJpaApplicationRepository.markUnknownIfPending(
-                applicationId, LocalDateTime.now());
-    }
-
-    @Override
-    public int cancelIfConfirmed(Long applicationId) {
-        return springDataJpaApplicationRepository.cancelIfConfirmed(
-                applicationId, LocalDateTime.now());
     }
 }

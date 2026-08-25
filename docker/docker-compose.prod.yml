@@ -22,6 +22,7 @@ services:
       timeout: 3s
       retries: 20
 
+  # backend 는 더 이상 호출하지 않는다. 외부 의존 장애를 흉내 내는 독립 서비스로만 남아 있다.
   payment-mock:
     image: ${DOCKER_NAMESPACE}/givemeticket:payment-mock
     restart: unless-stopped
@@ -47,8 +48,6 @@ services:
       mysql:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      payment-mock:
         condition: service_healthy
 
   prometheus:

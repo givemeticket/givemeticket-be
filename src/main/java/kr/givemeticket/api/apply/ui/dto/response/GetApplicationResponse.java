@@ -7,8 +7,8 @@ import kr.givemeticket.api.apply.domain.FailureReason;
 import kr.givemeticket.api.global.time.Utc;
 
 /**
- * @param expiresAt UTC. 프론트가 로컬 시각으로 그릴 수 있도록 Z를 붙여 내려간다
- * @param createdAt 위와 같다
+ * @param failureReason 사용자가 직접 누르지 않은 취소의 사유. 본인이 취소했으면 null
+ * @param createdAt     UTC. 프론트가 로컬 시각으로 그릴 수 있도록 Z를 붙여 내려간다
  */
 public record GetApplicationResponse(
         Long id,
@@ -16,8 +16,6 @@ public record GetApplicationResponse(
         Long userId,
         ApplicationStatus status,
         FailureReason failureReason,
-        String transactionId,
-        Instant expiresAt,
         Instant createdAt
 ) {
 
@@ -28,8 +26,6 @@ public record GetApplicationResponse(
                 response.userId(),
                 response.status(),
                 response.failureReason(),
-                response.transactionId(),
-                Utc.toInstant(response.expiresAt()),
                 Utc.toInstant(response.createdAt())
         );
     }

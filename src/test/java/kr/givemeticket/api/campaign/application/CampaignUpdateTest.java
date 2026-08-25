@@ -23,7 +23,8 @@ class CampaignUpdateTest {
 
     private static final Long CAMPAIGN_ID = 1L;
     private static final Long OWNER_ID = 10L;
-    private static final LocalDateTime OPEN_AT = LocalDateTime.of(2026, 9, 1, 10, 0);
+    // "미래여야 한다"를 서비스가 보게 됐으므로 기준 시각을 고정하지 않는다.
+    private static final LocalDateTime OPEN_AT = LocalDateTime.now().plusDays(7).withNano(0);
 
     private final FakeCampaignRepository campaignRepository = new FakeCampaignRepository();
     private final FakeStockRepository stockRepository = new FakeStockRepository();
@@ -84,7 +85,7 @@ class CampaignUpdateTest {
         @DisplayName("오픈 시각을 미루면 접수가 멈추고 오픈 전으로 돌아간다")
         void reschedulesOnDelay() {
             Campaign campaign = given(CampaignStatus.OPEN, 100);
-            stateRepository.states.put(CAMPAIGN_ID, new CampaignState(false, 100));
+            stateRepository.states.put(CAMPAIGN_ID, new CampaignState(100));
 
             campaignService.updateCampaign(CAMPAIGN_ID, OWNER_ID,
                     request(OPEN_AT.plusHours(2), null));
@@ -121,7 +122,7 @@ class CampaignUpdateTest {
         void allowsIncreaseWithUnchangedOpenAt() {
             Campaign campaign = given(CampaignStatus.OPEN, 100);
             stockRepository.stock.put(CAMPAIGN_ID, 0L);
-            stateRepository.states.put(CAMPAIGN_ID, new CampaignState(true, 100));
+            stateRepository.states.put(CAMPAIGN_ID, new CampaignState(100));
 
             assertThatCode(() -> campaignService.updateCampaign(CAMPAIGN_ID, OWNER_ID,
                     request(OPEN_AT, 130))).doesNotThrowAnyException();
@@ -129,14 +130,30 @@ class CampaignUpdateTest {
             assertThat(campaign.getTotalStock()).isEqualTo(130);
             assertThat(stockRepository.stock).containsEntry(CAMPAIGN_ID, 30L);
             assertThat(stateRepository.states.get(CAMPAIGN_ID))
-                    .isEqualTo(new CampaignState(true, 130));
+                    .isEqualTo(new CampaignState(130));
+        }
+
+        @Test
+        @DisplayName("오픈 시각이 이미 지났어도 그 값을 그대로 같이 보내면 정원만 바뀐다")
+        void ignoresUnchangedPastOpenAt() {
+            LocalDateTime pastOpenAt = LocalDateTime.now().minusHours(1).withNano(0);
+            Campaign campaign = given(CampaignStatus.OPEN, 100, pastOpenAt);
+            stockRepository.stock.put(CAMPAIGN_ID, 0L);
+            stateRepository.states.put(CAMPAIGN_ID, new CampaignState(100));
+
+            assertThatCode(() -> campaignService.updateCampaign(CAMPAIGN_ID, OWNER_ID,
+                    request(pastOpenAt, 130))).doesNotThrowAnyException();
+
+            assertThat(campaign.getTotalStock()).isEqualTo(130);
+            assertThat(campaign.getOpenAt()).isEqualTo(pastOpenAt);
+            assertThat(campaign.getStatus()).isEqualTo(CampaignStatus.OPEN);
         }
 
         @Test
         @DisplayName("오픈 시각을 미루면서 정원을 줄이는 것은 여전히 막힌다")
         void rejectsShrinkEvenWhenDelayed() {
             given(CampaignStatus.OPEN, 100);
-            stateRepository.states.put(CAMPAIGN_ID, new CampaignState(false, 100));
+            stateRepository.states.put(CAMPAIGN_ID, new CampaignState(100));
 
             assertThatThrownBy(() -> campaignService.updateCampaign(CAMPAIGN_ID, OWNER_ID,
                     request(OPEN_AT.plusHours(2), 50)))
@@ -146,9 +163,13 @@ class CampaignUpdateTest {
     }
 
     private Campaign given(CampaignStatus status, int totalStock) {
+        return given(status, totalStock, OPEN_AT);
+    }
+
+    private Campaign given(CampaignStatus status, int totalStock, LocalDateTime openAt) {
         Campaign campaign = new Campaign(
                 OWNER_ID, "3AbCdEfGh1", "테스트 행사", CampaignType.TICKET,
-                totalStock, OPEN_AT, false, null);
+                totalStock, openAt, null);
         TestEntities.with(campaign, "id", CAMPAIGN_ID);
         TestEntities.with(campaign, "status", status);
 

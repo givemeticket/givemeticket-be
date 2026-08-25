@@ -30,8 +30,8 @@ function buildDetail() {
   };
 }
 
-// 결제 경로까지 계속 두드리는 것이 이 테스트의 목적이다.
-http.setResponseCallback(http.expectedStatuses(200, 201, 202, 409));
+// 매진 뒤에도 계속 두드리는 것이 이 테스트의 목적이라 409 를 실패로 세지 않는다.
+http.setResponseCallback(http.expectedStatuses(200, 201, 409));
 
 // RATE(초당 반복 수)를 주면 도착률을 고정한다. A/B 비교는 반드시 이 모드로 해야 한다.
 //
@@ -80,7 +80,6 @@ export function setup() {
       title: 'k6 soak',
       totalStock: 1000000,
       openAt,
-      requiresPayment: true,
       detail: buildDetail(),
     }),
     { headers: OWNER }
@@ -111,17 +110,17 @@ export default function (data) {
       headers: authHeaders(userId),
     });
     check(res, { '신청 201/409': (r) => r.status === 201 || r.status === 409 });
-    if (res.status === 201 && res.json('status') === 'PENDING') {
+    if (res.status === 201) {
       applicationId = res.json('id');
     }
   });
 
   if (applicationId) {
-    group('confirm', () => {
-      const res = http.post(`${API}/applications/${applicationId}/confirm`, null, {
+    group('cancel', () => {
+      const res = http.post(`${API}/applications/${applicationId}/cancel`, null, {
         headers: authHeaders(userId),
       });
-      check(res, { '확정 200/202': (r) => r.status === 200 || r.status === 202 });
+      check(res, { '취소 200': (r) => r.status === 200 });
     });
   }
 

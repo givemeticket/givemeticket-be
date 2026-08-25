@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import kr.givemeticket.api.apply.domain.Application;
+import kr.givemeticket.api.apply.domain.ApplicationStatus;
+import kr.givemeticket.api.apply.domain.FailureReason;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignDetailResponse;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignSummaryResponse;
 import kr.givemeticket.api.campaign.domain.Campaign;
@@ -24,16 +27,18 @@ import org.junit.jupiter.api.Test;
 class CampaignQueryTest {
 
     private static final Long OWNER_ID = 10L;
+    private static final Long USER_ID = 20L;
     private static final LocalDateTime OPEN_AT = LocalDateTime.of(2026, 9, 1, 10, 0);
 
     private final FakeCampaignRepository campaignRepository = new FakeCampaignRepository();
     private final FakeStockRepository stockRepository = new FakeStockRepository();
     private final FakeUserRepository userRepository = new FakeUserRepository();
+    private final FakeApplicationRepository applicationRepository = new FakeApplicationRepository();
 
     private final CampaignCacheRepository noOpCache = new NoOpCampaignCacheRepository();
 
     private final CampaignService campaignService = new CampaignService(
-            campaignRepository, null, null, null, stockRepository, null,
+            campaignRepository, null, applicationRepository, null, stockRepository, null,
             noOpCache, new CampaignCacheEvictor(noOpCache), null,
             new UserService(userRepository, null));
 
@@ -131,6 +136,60 @@ class CampaignQueryTest {
         assertThat(detail.remainingStock()).isNull();
     }
 
+    @Test
+    @DisplayName("참여 목록에는 주최자가 지운 행사도 남는다")
+    void participatedKeepsDeletedCampaigns() {
+        givenOwner("민기", null);
+        Campaign live = givenCampaign(1L, "살아있는 행사", CampaignStatus.OPEN, 100, 37L);
+        Campaign deleted = givenCampaign(2L, "지워진 행사", CampaignStatus.DELETED, 100, 0L);
+        givenApplication(live.getId(), ApplicationStatus.CONFIRMED, null);
+        givenApplication(deleted.getId(), ApplicationStatus.CANCELLED, FailureReason.CAMPAIGN_DELETED);
+
+        List<CampaignSummaryResponse> campaigns = campaignService.getParticipatedCampaigns(USER_ID);
+
+        assertThat(campaigns).extracting(summary -> summary.campaign().title())
+                .containsExactlyInAnyOrder("살아있는 행사", "지워진 행사");
+        assertThat(campaigns)
+                .filteredOn(summary -> summary.campaign().status() == CampaignStatus.DELETED)
+                .singleElement()
+                .extracting(CampaignSummaryResponse::myApplicationStatus)
+                .isEqualTo(ApplicationStatus.CANCELLED);
+    }
+
+    @Test
+    @DisplayName("참여 목록에서 내가 직접 취소한 행사는 빠진다")
+    void participatedDropsSelfCancelled() {
+        givenOwner("민기", null);
+        Campaign campaign = givenCampaign(1L, "내가 취소한 행사", CampaignStatus.OPEN, 100, 38L);
+        givenApplication(campaign.getId(), ApplicationStatus.CANCELLED, null);
+
+        assertThat(campaignService.getParticipatedCampaigns(USER_ID)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("종료된 행사는 신청이 그대로라 참여 목록에 남는다")
+    void participatedKeepsClosedCampaigns() {
+        givenOwner("민기", null);
+        Campaign campaign = givenCampaign(1L, "종료된 행사", CampaignStatus.CLOSED, 100, 0L);
+        givenApplication(campaign.getId(), ApplicationStatus.CONFIRMED, null);
+
+        List<CampaignSummaryResponse> campaigns = campaignService.getParticipatedCampaigns(USER_ID);
+
+        assertThat(campaigns).singleElement()
+                .extracting(summary -> summary.campaign().status())
+                .isEqualTo(CampaignStatus.CLOSED);
+    }
+
+    private void givenApplication(
+            Long campaignId, ApplicationStatus status, FailureReason failureReason) {
+        Application application = Application.confirmed(campaignId, USER_ID);
+        TestEntities.with(application, "id", campaignId);
+        TestEntities.with(application, "status", status);
+        TestEntities.with(application, "failureReason", failureReason);
+
+        applicationRepository.put(application);
+    }
+
     private void givenOwner(String nickname, String profileImageUrl) {
         User user = new User(nickname, profileImageUrl, "provider-1", Provider.KAKAO);
         TestEntities.with(user, "id", OWNER_ID);
@@ -141,7 +200,7 @@ class CampaignQueryTest {
             Long campaignId, String title, CampaignStatus status, int totalStock, long remaining) {
         Campaign campaign = new Campaign(
                 OWNER_ID, "code" + campaignId, title, CampaignType.TICKET,
-                totalStock, OPEN_AT, false, null);
+                totalStock, OPEN_AT, null);
         TestEntities.with(campaign, "id", campaignId);
         TestEntities.with(campaign, "status", status);
 

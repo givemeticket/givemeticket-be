@@ -10,7 +10,6 @@ public record CampaignSnapshot(
         CampaignType type,
         int totalStock,
         LocalDateTime openAt,
-        boolean requiresPayment,
         CampaignStatus status,
         Detail detail
 ) {
@@ -49,7 +48,6 @@ public record CampaignSnapshot(
                 campaign.getType(),
                 campaign.getTotalStock(),
                 campaign.getOpenAt(),
-                campaign.isRequiresPayment(),
                 campaign.getStatus(),
                 Detail.from(campaign.getDetail()));
     }

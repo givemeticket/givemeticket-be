@@ -118,6 +118,6 @@ class CampaignCacheInvalidationTest {
     private CampaignSnapshot snapshot() {
         return new CampaignSnapshot(
                 1L, 2L, SHORT_CODE, "제목", CampaignType.TICKET, 100,
-                LocalDateTime.of(2026, 9, 1, 12, 0), true, CampaignStatus.OPEN, null);
+                LocalDateTime.of(2026, 9, 1, 12, 0), CampaignStatus.OPEN, null);
     }
 }

@@ -2,11 +2,9 @@ package kr.givemeticket.api.apply.ui;
 
 import java.net.URI;
 import kr.givemeticket.api.apply.application.ApplicationService;
-import kr.givemeticket.api.apply.application.dto.response.ApplicationResponse;
 import kr.givemeticket.api.apply.ui.apiSpec.ApplicationApiSpec;
 import kr.givemeticket.api.apply.ui.dto.response.ApplyResponse;
 import kr.givemeticket.api.apply.ui.dto.response.CancelApplicationResponse;
-import kr.givemeticket.api.apply.ui.dto.response.ConfirmApplicationResponse;
 import kr.givemeticket.api.apply.ui.dto.response.GetApplicationResponse;
 import kr.givemeticket.api.global.log.BusinessLogging;
 import kr.givemeticket.api.global.auth.annotation.LoginUserId;
@@ -35,23 +33,6 @@ public class ApplicationController implements ApplicationApiSpec {
 
         return ResponseEntity.created(URI.create("applications/" + applyResponse.id()))
                 .body(applyResponse);
-    }
-
-    @Override
-    @BusinessLogging("신청 확정(결제)")
-    @PostMapping("applications/{applicationId}/confirm")
-    public ResponseEntity<ConfirmApplicationResponse> confirmApplication(
-            @LoginUserId Long userId,
-            @PathVariable("applicationId") Long applicationId
-    ) {
-        ApplicationResponse response = applicationService.confirm(applicationId, userId);
-        ConfirmApplicationResponse confirmApplicationResponse =
-                ConfirmApplicationResponse.from(response);
-
-        if (response.isPending()) {
-            return ResponseEntity.accepted().body(confirmApplicationResponse);
-        }
-        return ResponseEntity.ok(confirmApplicationResponse);
     }
 
     @Override

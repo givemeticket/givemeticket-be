@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import kr.givemeticket.api.apply.application.dto.response.ApplicationResponse;
 import kr.givemeticket.api.apply.domain.ApplicationStatus;
-import kr.givemeticket.api.apply.ui.dto.response.ApplyResponse;
+import kr.givemeticket.api.apply.ui.dto.response.GetApplicationResponse;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignDetailInfo;
 import kr.givemeticket.api.campaign.ui.dto.request.PostCampaignRequest;
 import org.junit.jupiter.api.DisplayName;
@@ -33,7 +33,7 @@ class OpenAtSerializationTest {
         CreateCampaignResponse response = new CreateCampaignResponse(
                 1L, "3AbCdEfGh1", "테스트 행사", 100,
                 LocalDateTime.of(2026, 8, 14, 10, 0).toInstant(ZoneOffset.UTC),
-                false, null);
+                null);
 
         contextRunner.run(context -> assertThat(
                 context.getBean(ObjectMapper.class).writeValueAsString(response))
@@ -58,17 +58,17 @@ class OpenAtSerializationTest {
     @Test
     @DisplayName("null 인 시각은 그대로 null 로 내려간다")
     void keepsNullDatesNull() {
-        ApplyResponse response = ApplyResponse.from(new ApplicationResponse(
-                1L, 1L, 1L, ApplicationStatus.CONFIRMED, null, null, null, null));
+        GetApplicationResponse response = GetApplicationResponse.from(new ApplicationResponse(
+                1L, 1L, 1L, ApplicationStatus.CONFIRMED, null, null));
 
-        assertThat(response.expiresAt()).isNull();
+        assertThat(response.createdAt()).isNull();
     }
 
     @Test
     @DisplayName("요청의 openAt 은 Z 가 붙어 와도 UTC 로 역직렬화된다")
     void acceptsZuluSuffixOnRequest() {
         String json = """
-                {"title":"테스트 행사","totalStock":100,"openAt":"2026-08-14T10:00:00Z","requiresPayment":false}
+                {"title":"테스트 행사","totalStock":100,"openAt":"2026-08-14T10:00:00Z"}
                 """;
 
         contextRunner.run(context -> assertThat(

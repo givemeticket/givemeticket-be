@@ -7,7 +7,7 @@ const STOCK = Number(__ENV.STOCK || 100);
 const API = `${BASE_URL}/api/v1`;
 const OWNER = jsonAuthHeaders(1);
 
-http.setResponseCallback(http.expectedStatuses(200, 201, 202, 409));
+http.setResponseCallback(http.expectedStatuses(200, 201, 409));
 
 export const options = {
   scenarios: {
@@ -37,7 +37,7 @@ export function setup() {
   const openAt = new Date(Date.now() + 4000).toISOString().slice(0, 19);
   const res = http.post(
     `${API}/campaigns`,
-    JSON.stringify({ title: 'k6 capacity', totalStock: STOCK, openAt, requiresPayment: false }),
+    JSON.stringify({ title: 'k6 capacity', totalStock: STOCK, openAt }),
     { headers: OWNER }
   );
   const campaignId = res.json('id');
@@ -55,5 +55,5 @@ export default function (data) {
   const res = http.post(`${API}/campaigns/${data.campaignId}/apply`, null, {
     headers: authHeaders(userId),
   });
-  check(res, { '5xx 아님': (r) => r.status === 201 || r.status === 202 || r.status === 409 });
+  check(res, { '5xx 아님': (r) => r.status === 201 || r.status === 409 });
 }

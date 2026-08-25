@@ -10,6 +10,7 @@ import kr.givemeticket.api.apply.application.ApplicationService;
 import kr.givemeticket.api.apply.domain.Application;
 import kr.givemeticket.api.apply.domain.ApplicationRepository;
 import kr.givemeticket.api.apply.domain.ApplicationStatus;
+import kr.givemeticket.api.apply.domain.FailureReason;
 import kr.givemeticket.api.campaign.application.dto.CampaignDetailCommand;
 import kr.givemeticket.api.campaign.application.dto.request.CampaignCreateRequest;
 import kr.givemeticket.api.campaign.application.dto.request.CampaignUpdateRequest;
@@ -44,6 +45,11 @@ public class CampaignService {
     private static final int SHORT_CODE_MAX_ATTEMPTS = 5;
     private static final Set<ApplicationStatus> CONFIRMED_ONLY = Set.of(ApplicationStatus.CONFIRMED);
 
+    /**
+     * 취소됐어도 "나의 티켓"에 남겨야 하는 사유. 사용자가 직접 누르지 않은 취소만 여기 들어간다.
+     */
+    private static final Set<FailureReason> LISTED_CANCELLATIONS = Set.of(FailureReason.CAMPAIGN_DELETED);
+
     private final CampaignRepository campaignRepository;
     private final CampaignPersister campaignPersister;
     private final ApplicationRepository applicationRepository;
@@ -64,7 +70,6 @@ public class CampaignService {
                 CampaignType.TICKET,
                 request.totalStock(),
                 request.openAt(),
-                request.requiresPayment(),
                 CampaignDetailCommand.toCampaignDetailOrNull(request.detail()));
         Campaign saved = campaignRepository.save(campaign);
 
@@ -130,10 +135,19 @@ public class CampaignService {
         return toSummaries(campaignRepository.findAllOwnedBy(ownerId), Map.of());
     }
 
+    /**
+     * 자리를 잡고 있는 신청에 더해, 주최자가 행사를 지워서 취소된 신청까지 보여준다.
+     * 신청해 둔 행사가 아무 설명 없이 목록에서 사라지면 사용자는 무슨 일이 있었는지 알 수 없다.
+     * 행사는 status=DELETED 로, 신청은 CANCELLED 로 남아 "삭제된 행사"라고 그릴 수 있다.
+     *
+     * <p>반대로 내가 직접 취소한 건은 넣지 않는다. 사라진 이유를 이미 알고 있고,
+     * 취소한 행사가 목록에 계속 남아 있으면 그게 더 이상하다.
+     */
     @Transactional(readOnly = true)
     public List<CampaignSummaryResponse> getParticipatedCampaigns(Long userId) {
         Map<Long, ApplicationStatus> statusByCampaign = applicationRepository
-                .findAllByUserIdAndStatusIn(userId, ApplicationStatus.active()).stream()
+                .findAllByUserIdAndStatusInOrFailureReasonIn(
+                        userId, ApplicationStatus.active(), LISTED_CANCELLATIONS).stream()
                 .collect(Collectors.toMap(Application::getCampaignId, Application::getStatus));
 
         return toSummaries(campaignRepository.findAllByIdIn(statusByCampaign.keySet()), statusByCampaign);
@@ -242,14 +256,28 @@ public class CampaignService {
      *
      * <p>미룰 때는 신청 게이트를 걷어 접수를 멈춘다. 이걸 두고 시각만 바꾸면
      * "아직 안 열린 행사인데 신청은 받는" 상태가 된다. 새 시각이 되면 스케줄러가 다시 연다.
+     *
+     * <p>여기까지 왔다는 건 값이 실제로 달라졌다는 뜻이다. 그래서 "미래여야 한다"를 여기서 본다.
+     * 요청 DTO 에서 보면 이미 오픈된(= openAt 이 과거인) 행사의 폼을 그대로 되돌려 보내는 것조차
+     * 막힌다.
+     *
+     * <p>둘 다 걸리는 요청에는 "미룰 수만 있다"를 먼저 알려준다. 이미 오픈된 행사에서는
+     * 그쪽이 사용자가 실제로 어겨야 하는 규칙이다.
      */
     private void changeOpenAt(Campaign campaign, LocalDateTime openAt, boolean opened) {
+        if (campaign.isClosed()) {
+            // 그냥 두면 미래로 미루는 순간 SCHEDULED 로 돌아가 종료한 행사가 다시 열린다.
+            throw CampaignApplicationException.campaignClosed();
+        }
+        if (opened && !openAt.isAfter(campaign.getOpenAt())) {
+            throw CampaignApplicationException.openAtNotDelayable();
+        }
+        if (!openAt.isAfter(LocalDateTime.now())) {
+            throw CampaignApplicationException.openAtNotFuture();
+        }
         if (!opened) {
             campaign.changeOpenAt(openAt);
             return;
-        }
-        if (!openAt.isAfter(campaign.getOpenAt())) {
-            throw CampaignApplicationException.openAtNotDelayable();
         }
 
         campaign.delayOpenAt(openAt);
@@ -273,17 +301,40 @@ public class CampaignService {
         stockRepository.increaseBy(campaignId, delta);
 
         campaignStateRepository.find(campaignId).ifPresent(state ->
-                campaignStateRepository.save(campaignId,
-                        new CampaignState(state.requiresPayment(), totalStock)));
+                campaignStateRepository.save(campaignId, new CampaignState(totalStock)));
 
         log.info("campaign stock changed: campaignId={}, delta={}, totalStock={}",
                 campaignId, delta, totalStock);
     }
 
     /**
-     * 신청자가 있어도 삭제할 수 있다. 남은 신청은 전부 취소되고, 결제된 건은 환불된다.
+     * 행사를 종료한다. 신규 신청만 막고, 이미 확정된 신청은 그대로 둔다.
+     * 그래서 삭제와 달리 취소가 일어나지 않고 트랜잭션 하나로 끝난다.
      *
-     * <p>환불이 신청 수만큼 외부 호출을 일으키므로 트랜잭션으로 감싸지 않는다.
+     * <p>재고 키는 지우지 않는다. 종료된 뒤에도 몇 자리가 나갔는지는 보여야 한다.
+     *
+     * <p>두 번 눌러도 결과는 같다. 되돌릴 부작용이 없어 굳이 409로 끊지 않는다.
+     */
+    @Transactional
+    public CampaignResponse closeCampaign(Long campaignId, Long userId) {
+        Campaign campaign = findManageableCampaign(campaignId, userId);
+
+        // 신규 신청을 먼저 막는다. 상태부터 바꾸면 그 사이에 들어온 신청이 살아남는다.
+        campaignStateRepository.remove(campaignId);
+
+        campaignCacheEvictor.evict(campaign.getShortCode());
+
+        if (!campaign.isClosed()) {
+            campaign.close();
+            log.info("campaign closed: campaignId={}, ownerId={}", campaignId, userId);
+        }
+        return CampaignResponse.of(campaign);
+    }
+
+    /**
+     * 신청자가 있어도 삭제할 수 있다. 남은 신청은 전부 취소된다.
+     *
+     * <p>신청 수만큼 상태 전이가 일어나므로 트랜잭션으로 감싸지 않는다.
      * 상태 전이는 {@link CampaignPersister}·{@link ApplicationPersister} 가 건별로 짧게 끊는다.
      */
     public void deleteCampaign(Long campaignId, Long userId) {
@@ -294,7 +345,7 @@ public class CampaignService {
         campaignCacheEvictor.evict(campaign.getShortCode());
 
         if (campaignPersister.markDeleted(campaignId) == 0) {
-            // 그 사이 다른 요청이 이미 지웠다. 취소·환불을 두 번 돌리지 않는다.
+            // 그 사이 다른 요청이 이미 지웠다. 취소를 두 번 돌리지 않는다.
             throw CampaignApplicationException.campaignDeleted();
         }
 

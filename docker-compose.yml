@@ -41,7 +41,10 @@ services:
         reservations:
           memory: 256m
 
+  # 백엔드는 더 이상 호출하지 않는다. 결함 주입 실험용으로 남겨둔 독립 서비스라
+  # 기본 프로필에서는 뜨지 않는다.
   payment-mock:
+    profiles: ["payment-mock"]
     build: ./payment-mock
     environment:
       PAYMENT_DELAY_MS: ${PAYMENT_DELAY_MS}
@@ -78,7 +81,6 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      PAYMENT_BASE_URL: http://payment-mock:8081
       DB_POOL_SIZE: ${DB_POOL_SIZE}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       JWT_ACCESS_TOKEN_EXPIRATION_MS: ${JWT_ACCESS_TOKEN_EXPIRATION_MS:-604800000}
@@ -87,14 +89,9 @@ services:
       KAKAO_ADMIN_KEY: ${KAKAO_ADMIN_KEY:-}
       NAVER_CLIENT_ID: ${NAVER_CLIENT_ID}
       NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET}
-      APPLICATION_HOLD_DURATION: ${APPLICATION_HOLD_DURATION:-2m}
-      APPLICATION_EXPIRE_SCHEDULER_DELAY_MS: ${APPLICATION_EXPIRE_SCHEDULER_DELAY_MS:-10000}
-      # GC/메모리 실험용 손잡이. 기본값은 Dockerfile 과 같다.
-      # 바꾼 뒤 docker compose up -d backend 만 하면 재빌드 없이 반영된다.
       JVM_HEAP_OPTS: ${JVM_HEAP_OPTS:--XX:InitialRAMPercentage=70.0 -XX:MaxRAMPercentage=70.0}
       JVM_GC_OPTS: ${JVM_GC_OPTS:--XX:+UseG1GC}
       JAVA_OPTS_EXTRA: ${JAVA_OPTS_EXTRA:-}
-      # none: 캐시 없음 / redis: Redis 캐시만 / local: 로컬 캐시 + Redis + pub/sub 무효화
       CAMPAIGN_CACHE_MODE: ${CAMPAIGN_CACHE_MODE:-local}
       CAMPAIGN_CACHE_TTL: ${CAMPAIGN_CACHE_TTL:-10m}
       CAMPAIGN_LOCAL_CACHE_TTL: ${CAMPAIGN_LOCAL_CACHE_TTL:-30s}
@@ -107,8 +104,6 @@ services:
       mysql:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      payment-mock:
         condition: service_healthy
     deploy:
       resources:
