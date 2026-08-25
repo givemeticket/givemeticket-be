@@ -19,6 +19,8 @@ VUS=${VUS:-60}
 DURATION=${DURATION:-2m}
 # 행사 안내문 길이(자). 캐시에 담기는 값의 크기를 좌우한다. 0이면 detail 없이 만든다.
 DETAIL_SIZE=${DETAIL_SIZE:-0}
+# read-only.js 가 만들 캠페인 수. 하나뿐이면 캐시에 지나치게 유리한 조건이 된다.
+CAMPAIGNS=${CAMPAIGNS:-50}
 # 초당 반복 수를 고정한다. 0이면 VU 고정(포화) 모드.
 # A/B 비교는 반드시 RATE 를 줘서 같은 부하에서 재야 한다. 이유는 soak.js 주석 참고.
 RATE=${RATE:-0}
@@ -43,8 +45,9 @@ JWT_SECRET_KEY=${JWT_SECRET_KEY:-$(grep -m1 '^JWT_SECRET_KEY=' .env 2>/dev/null 
 DEFAULT_HEAP="-XX:InitialRAMPercentage=70.0 -XX:MaxRAMPercentage=70.0"
 MATRIX=(
   # 캐시 도입 전후. 나머지 조건이 같아야 비교가 된다.
-  "cache-off|$DEFAULT_HEAP|-XX:+UseG1GC|1g|CAMPAIGN_CACHE_ENABLED=false"
-  "cache-on|$DEFAULT_HEAP|-XX:+UseG1GC|1g|CAMPAIGN_CACHE_ENABLED=true"
+  "cache-off|$DEFAULT_HEAP|-XX:+UseG1GC|1g|CAMPAIGN_CACHE_MODE=none"
+  "cache-redis|$DEFAULT_HEAP|-XX:+UseG1GC|1g|CAMPAIGN_CACHE_MODE=redis"
+  "cache-local|$DEFAULT_HEAP|-XX:+UseG1GC|1g|CAMPAIGN_CACHE_MODE=local"
   # 힙 크기와 GC 종류. 캐시는 compose 기본값(켜짐)으로 돈다.
   "g1-256m|-Xms256m -Xmx256m|-XX:+UseG1GC|1g|"
   "g1-512m|-Xms512m -Xmx512m|-XX:+UseG1GC|1g|"
@@ -154,10 +157,22 @@ run_one() {
   local t0 t1 win_start win_end win head_trim tail_trim
   t0=$(date +%s)
   k6 run -e BASE_URL="$BASE_URL" -e VUS="$VUS" -e DURATION="$DURATION" -e RATE="$RATE" \
-    -e DETAIL_SIZE="$DETAIL_SIZE" \
+    -e DETAIL_SIZE="$DETAIL_SIZE" -e CAMPAIGNS="$CAMPAIGNS" \
     -e JWT_SECRET_KEY="$JWT_SECRET_KEY" "$SCRIPT" \
     >"$OUT_DIR/$tag.k6.txt" 2>&1 || echo "  (k6 임계값 실패 — $OUT_DIR/$tag.k6.txt 확인)"
   t1=$(date +%s)
+
+  # 부하가 실제로 성공했는지 먼저 본다.
+  # setup 에서 캠페인 생성이 실패하면 그 뒤 요청이 전부 404 인데도 rps·GC·할당은 그럴듯한
+  # 숫자로 채워진다. 표만 보면 정상처럼 보여서 실제로 한 번 속았다.
+  local checks
+  checks=$(grep -a 'checks_succeeded' "$OUT_DIR/$tag.k6.txt" 2>/dev/null |
+    head -1 | grep -oE '[0-9]+\.[0-9]+%' | head -1 | tr -d '%')
+  if [ -n "$checks" ] && awk "BEGIN{exit !($checks < 50)}"; then
+    echo "  체크 성공률이 ${checks}% 다. 부하가 제대로 안 걸렸다 — 이 실행은 버린다."
+    echo "  ($OUT_DIR/$tag.k6.txt 확인)"
+    return
+  fi
 
   # 잘라낼 구간은 부하 모양에 따라 다르다.
   # VU 모드는 앞뒤로 30s 램프업 / 20s 램프다운이 붙고, 도착률 고정 모드는 그게 없다.
