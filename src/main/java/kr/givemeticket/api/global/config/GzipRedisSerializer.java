@@ -1,7 +1,5 @@
 package kr.givemeticket.api.global.config;
 
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -51,16 +49,12 @@ public class GzipRedisSerializer<T> implements RedisSerializer<T> {
     /**
      * 캐시 값 전용 ObjectMapper.
      *
-     * <p>{@code isDeleted()} 같은 파생 메서드까지 필드로 나가면 캐시에 담기는 바이트가 늘고,
-     * 읽을 때는 대응하는 레코드 컴포넌트가 없어 역직렬화가 깨진다. is-getter 탐지를 꺼서 막는다.
-     *
      * <p>모르는 필드는 무시한다. 스냅샷에 필드를 추가한 배포 직후, Redis 에 남아 있는 옛 값을
      * 읽다가 전부 터지는 것보다 조용히 무시하고 TTL 로 갈리는 편이 낫다.
      */
     public static ObjectMapper defaultObjectMapper() {
         return new ObjectMapper()
                 .registerModule(new JavaTimeModule())
-                .setVisibility(PropertyAccessor.IS_GETTER, JsonAutoDetect.Visibility.NONE)
                 .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
     }
 

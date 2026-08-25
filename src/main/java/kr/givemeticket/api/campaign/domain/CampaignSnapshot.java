@@ -68,12 +68,13 @@ public record CampaignSnapshot(
                 Detail.from(campaign.getDetail()));
     }
 
+    /**
+     * 인자 없는 {@code isXxx()} 파생 메서드는 두지 않는다. Jackson 이 그것을 필드로 인식해
+     * 캐시 JSON 에 같이 써 버리기 때문이다. 바이트가 늘고, 읽을 때는 대응하는 레코드 컴포넌트가
+     * 없어 역직렬화가 깨진다. 상태 판단이 필요하면 호출부에서 {@code status()} 를 직접 비교한다.
+     */
     public boolean isOwnedBy(Long userId) {
         return this.ownerId.equals(userId);
-    }
-
-    public boolean isDeleted() {
-        return status == CampaignStatus.DELETED;
     }
 
     /**

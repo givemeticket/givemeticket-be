@@ -61,11 +61,23 @@ payment:
 
 campaign:
   cache:
-    # false 로 두면 NoOp 구현이 들어가 Redis 를 아예 부르지 않는다.
-    # 같은 빌드에서 캐시 있음/없음을 비교할 때 쓴다.
-    enabled: ${CAMPAIGN_CACHE_ENABLED:true}
+    # none: 캐시 없음 / redis: Redis 캐시만 / local: 로컬 캐시 + Redis + pub/sub 무효화
+    # 같은 빌드로 갈아 끼우며 비교하기 위한 스위치다.
+    mode: ${CAMPAIGN_CACHE_MODE:redis}
     # 무효화는 변경 시점마다 하지만, 놓친 무효화가 영원히 남지 않도록 만료를 둔다.
     ttl: ${CAMPAIGN_CACHE_TTL:10m}
+    local:
+      # pub/sub 은 at-most-once 라 방송을 놓칠 수 있다. 그때 낡은 값이 남는 시간의 상한이다.
+      ttl: ${CAMPAIGN_LOCAL_CACHE_TTL:30s}
+      # 로컬 캐시는 힙에 그대로 얹힌다. 무한정 늘어나지 않게 묶어 둔다.
+      #
+      # 항목 하나의 실제 힙 점유를 재 보면 (Caffeine 내부 노드 포함) 안내문 길이에 비례한다.
+      #   300자 1.2KB / 800자 2.2KB / 1,500자 3.6KB / 5,000자 10.5KB
+      # 6,000 개는 안내문이 전부 도메인 상한(5,000자)일 때도 61MB 로, 힙 718MB 의 8.6% 다.
+      # 보통 길이(800자)라면 13MB, 1.8% 밖에 안 된다.
+      #
+      # 힙 크기를 바꾸면 이 숫자도 같이 봐야 한다. 기준은 "최악의 경우가 힙의 10% 이내" 다.
+      max-size: ${CAMPAIGN_LOCAL_CACHE_MAX_SIZE:6000}
 
 application:
   # apply 후 confirm까지 자리를 잡아둘 수 있는 시간. 사용자가 결제창에 머무는 시간이다.

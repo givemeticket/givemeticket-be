@@ -8,10 +8,7 @@ import java.util.Optional;
 import kr.givemeticket.api.campaign.domain.CampaignCacheRepository;
 import kr.givemeticket.api.campaign.domain.CampaignSnapshot;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Repository;
 
 /**
  * 캠페인 상세 조회용 Redis 캐시.
@@ -27,8 +24,6 @@ import org.springframework.stereotype.Repository;
  * </ul>
  */
 @Slf4j
-@Repository
-@ConditionalOnProperty(name = "campaign.cache.enabled", havingValue = "true", matchIfMissing = true)
 public class RedisCampaignCacheRepository implements CampaignCacheRepository {
 
     private static final String KEY_PREFIX = "campaign:detail:";
@@ -43,7 +38,7 @@ public class RedisCampaignCacheRepository implements CampaignCacheRepository {
     public RedisCampaignCacheRepository(
             RedisTemplate<String, CampaignSnapshot> campaignCacheRedisTemplate,
             MeterRegistry meterRegistry,
-            @Value("${campaign.cache.ttl:10m}") Duration ttl
+            Duration ttl
     ) {
         this.redisTemplate = campaignCacheRedisTemplate;
         this.ttl = ttl;
@@ -59,6 +54,7 @@ public class RedisCampaignCacheRepository implements CampaignCacheRepository {
     private static Counter counter(MeterRegistry registry, String result) {
         return Counter.builder("campaign.cache.requests")
                 .description("캠페인 캐시 조회 결과")
+                .tag("tier", "redis")
                 .tag("result", result)
                 .register(registry);
     }

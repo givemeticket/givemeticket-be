@@ -56,6 +56,29 @@ class GzipRedisSerializerTest {
     }
 
     @Test
+    @DisplayName("캐시 JSON 에 레코드 컴포넌트 말고 다른 필드가 새어 들어가지 않는다")
+    void writesOnlyRecordComponents() throws Exception {
+        // 인자 없는 isXxx() 메서드를 스냅샷에 추가하면 Jackson 이 그것도 필드로 써 버린다.
+        // 바이트가 늘고, 읽을 때는 대응하는 컴포넌트가 없어 깨진다. 그 회귀를 여기서 잡는다.
+        byte[] compressed = serializer.serialize(snapshot("본문", LocalDateTime.of(2026, 9, 1, 19, 0)));
+
+        String json;
+        try (java.util.zip.GZIPInputStream in =
+                     new java.util.zip.GZIPInputStream(new java.io.ByteArrayInputStream(compressed))) {
+            json = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+
+        java.util.Set<String> fields = GzipRedisSerializer.defaultObjectMapper()
+                .readTree(json).properties().stream()
+                .map(java.util.Map.Entry::getKey)
+                .collect(java.util.stream.Collectors.toSet());
+
+        assertThat(fields).containsExactlyInAnyOrder(
+                "id", "ownerId", "shortCode", "title", "type", "totalStock",
+                "openAt", "requiresPayment", "status", "detail");
+    }
+
+    @Test
     @DisplayName("원본과 압축 후 크기를 둘 다 지표로 남긴다")
     void recordsBothSizes() {
         serializer.serialize(snapshot("가".repeat(3_000), LocalDateTime.of(2026, 9, 1, 19, 0)));

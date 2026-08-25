@@ -22,6 +22,7 @@ import kr.givemeticket.api.campaign.domain.CampaignRepository;
 import kr.givemeticket.api.campaign.domain.CampaignSnapshot;
 import kr.givemeticket.api.campaign.domain.CampaignState;
 import kr.givemeticket.api.campaign.domain.CampaignStateRepository;
+import kr.givemeticket.api.campaign.domain.CampaignStatus;
 import kr.givemeticket.api.campaign.domain.CampaignType;
 import kr.givemeticket.api.campaign.domain.ShortCodeGenerator;
 import kr.givemeticket.api.campaign.domain.StockRepository;
@@ -70,7 +71,7 @@ public class CampaignService {
     @Transactional(readOnly = true)
     public CampaignDetailResponse getCampaignDetail(String shortCode, Long userId) {
         CampaignSnapshot campaign = findCachedCampaign(shortCode);
-        if (campaign.isDeleted()) {
+        if (campaign.status() == CampaignStatus.DELETED) {
             throw CampaignApplicationException.campaignDeleted();
         }
 
@@ -94,12 +95,6 @@ public class CampaignService {
         return CampaignDetailResponse.of(campaign, remaining, role, mine, null);
     }
 
-    /**
-     * 캐시를 먼저 보고, 없으면 DB 에서 읽어 채운다.
-     *
-     * <p>끝난 행사는 캐시에 올리지 않는다({@link CampaignSnapshot#isCacheable}).
-     * 다시 몰려서 조회될 일이 없는데 Redis 메모리만 차지하기 때문이다.
-     */
     private CampaignSnapshot findCachedCampaign(String shortCode) {
         Optional<CampaignSnapshot> cached = campaignCacheRepository.find(shortCode);
         if (cached.isPresent()) {
