@@ -53,9 +53,7 @@ k6 run -e STOCK=100 -e RATE=600 -e DURATION=30s load-test/rush.js
 ```
 
 - `STOCK` 정원, `RATE` 초당 요청 수, `DURATION` 지속 시간
-- `REQUIRES_PAYMENT=true`로 주면 결제 경로까지 포함해서 돌린다.
-  기본값은 `false` — 재고 경합만 남겨서 오버셀 여부를 깨끗하게 보기 위해서다
-- 판정: `apply_created + apply_unknown ≤ STOCK`, 잔여 재고 `≥ 0`, `http_req_failed < 1%`
+- 판정: `apply_created ≤ STOCK`, 잔여 재고 `≥ 0`, `http_req_failed < 1%`
 
 `http_req_duration` 임계값(`p(95)<1000`)은 **포화 상태에서 넘는 것이 정상**이다.
 로컬 compose는 backend·mysql에 각각 1 CPU만 주기 때문에, 600 rps에서는 큐잉으로 p95가 초 단위까지
@@ -64,41 +62,35 @@ k6 run -e STOCK=100 -e RATE=600 -e DURATION=30s load-test/rush.js
 
 ### soak.js — 지속 부하 + 장애 실험
 
-조회 → 신청 → 확정을 계속 돌린다. 실행 중에 장애를 주입하면 연쇄 전파를 볼 수 있다.
+조회 → 신청 → 취소를 계속 돌린다. 실행 중에 장애를 주입하면 연쇄 전파를 볼 수 있다.
 
 ```bash
 # 터미널 A: 부하
 k6 run -e VUS=100 -e DURATION=3m load-test/soak.js
 
 # 터미널 B: 장애 주입
-docker compose stop payment-mock          # 게이트웨이 다운 → 신청이 502
 docker compose stop redis                 # 신청 전면 실패
 docker compose stop mysql                 # 신청 기록 실패 → 커넥션 풀 고갈
 ```
 
-### 결제 장애 주입
+### payment-mock
 
-`.env`의 값을 바꾸고 `docker compose up -d payment-mock`으로 반영한다.
-현재 값은 `curl localhost:18081/fault`로 확인한다.
+결제 개념이 없어지면서 백엔드는 더 이상 이 서비스를 호출하지 않는다. 외부 의존 장애를 흉내 내는
+독립 서버로만 남아 있어 기본 프로필에서는 뜨지 않는다.
 
-| 변수 | 효과 | 기대 응답 |
-| --- | --- | --- |
-| `PAYMENT_DECLINE_RATE=1.0` | 카드 거절 | confirm이 `409 PAYMENT_DECLINED`, 재고 복원 |
-| `PAYMENT_ERROR_RATE=1.0` | 게이트웨이 5xx | confirm이 `502 PAYMENT_GATEWAY_ERROR`, 재고 복원 |
-| `PAYMENT_TIMEOUT_RATE=1.0` | 응답 지연(read timeout) | confirm이 `202` + `UNKNOWN`, **재고 유지** |
-| `PAYMENT_CANCEL_ERROR_RATE=1.0` | 환불 실패 | 취소는 `200` + `PENDING_RETRY`, 재고는 반납 |
-| `PAYMENT_DELAY_MS` / `PAYMENT_JITTER_MS` | 지연 주입 | 지연만 증가 |
+```bash
+docker compose --profile payment-mock up -d payment-mock
+curl localhost:18081/fault
+```
 
-mock은 멱등키별로 결제 상태를 인메모리에 들고 있다. 같은 키로 다시 요청하면 결제를 새로 만들지
-않고 첫 결과를 돌려준다. `GET /payments/{paymentKey}`로 상태를 직접 확인할 수 있다.
-
-`UNKNOWN`은 실패가 아니라 "모름"이라 재고를 돌려주지 않는다. 이유와 이후 정산 설계는
-[docs/payment-flow.md](../docs/payment-flow.md) 참고. 정산 배치는 아직 미구현이라
-타임아웃을 주입한 뒤에는 `UNKNOWN` 신청이 재고를 잡은 채로 남는다.
+주입 가능한 결함은 `.env`의 `PAYMENT_*` 값으로 조절한다(`PAYMENT_DELAY_MS`,
+`PAYMENT_JITTER_MS`, `PAYMENT_ERROR_RATE`, `PAYMENT_TIMEOUT_RATE`, `PAYMENT_DECLINE_RATE`,
+`PAYMENT_CANCEL_ERROR_RATE`). 지웠던 결제 연동 설계는
+[docs/payment-flow.md](../docs/payment-flow.md)에 기록으로 남겨 두었다.
 
 ## 주요 옵션
 
 - `-e BASE_URL=http://localhost:18080` 대상 주소
 - `--out json=result.json` 결과를 파일로 저장
 - 요약에서 `http_req_duration`, `http_req_failed`, 커스텀 카운터(`apply_created`,
-  `apply_sold_out`, `apply_unknown`)를 확인한다
+  `apply_sold_out`)를 확인한다

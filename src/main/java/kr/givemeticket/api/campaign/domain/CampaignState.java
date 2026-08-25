@@ -5,7 +5,6 @@ package kr.givemeticket.api.campaign.domain;
  * 캠페인이 열릴 때 Redis에 올라가고, 정원이 바뀌면 같이 갱신된다.
  */
 public record CampaignState(
-        boolean requiresPayment,
         int totalStock
 ) {
 }

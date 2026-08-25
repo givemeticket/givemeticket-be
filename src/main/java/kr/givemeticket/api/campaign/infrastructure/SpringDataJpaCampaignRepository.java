@@ -26,7 +26,7 @@ public interface SpringDataJpaCampaignRepository extends JpaRepository<Campaign,
     List<Campaign> findAllByStatusAndOpenAtLessThanEqual(CampaignStatus status, LocalDateTime now);
 
     /**
-     * 삭제 표시. 이미 삭제된 캠페인이면 0행이 바뀌므로 동시에 두 번 눌러도 취소·환불은 한 번만 돈다.
+     * 삭제 표시. 이미 삭제된 캠페인이면 0행이 바뀌므로 동시에 두 번 눌러도 신청 취소는 한 번만 돈다.
      *
      * <p>{@code @Modifying} 은 JPA 감사를 타지 않으므로 updatedAt 을 직접 넣는다.
      */

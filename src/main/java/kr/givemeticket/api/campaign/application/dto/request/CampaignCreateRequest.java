@@ -7,7 +7,6 @@ public record CampaignCreateRequest(
         String title,
         int totalStock,
         LocalDateTime openAt,
-        boolean requiresPayment,
         CampaignDetailCommand detail
 ) {
 }

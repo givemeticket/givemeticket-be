@@ -14,11 +14,11 @@ export const options = {
   },
 };
 
-function createCampaign(title, requiresPayment, detail) {
+function createCampaign(title, detail) {
   const openAt = new Date(Date.now() + 4000).toISOString().slice(0, 19);
   const res = http.post(
     `${API}/campaigns`,
-    JSON.stringify({ title, totalStock: 10, openAt, requiresPayment, detail }),
+    JSON.stringify({ title, totalStock: 10, openAt, detail }),
     { headers: OWNER }
   );
   check(res, { [`${title} 생성 201`]: (r) => r.status === 201 });
@@ -35,62 +35,45 @@ function waitUntilOpen(shortCode) {
 }
 
 export default function () {
-  // 결제 없는 캠페인 — apply 한 번으로 확정된다.
-  const free = createCampaign('k6 smoke (free)', false);
-  waitUntilOpen(free.shortCode);
+  // apply 한 번으로 자리를 잡고 그대로 확정된다. 이어서 부를 확정 API 는 없다.
+  const first = createCampaign('k6 smoke (1)');
+  waitUntilOpen(first.shortCode);
 
-  const freeApply = http.post(`${API}/campaigns/${free.id}/apply`, null, { headers: USER });
-  check(freeApply, {
-    '무료 신청 201': (r) => r.status === 201,
-    '무료 신청 CONFIRMED': (r) => r.json('status') === 'CONFIRMED',
-    '무료 신청은 만료 없음': (r) => r.json('expiresAt') === null,
+  const firstApply = http.post(`${API}/campaigns/${first.id}/apply`, null, { headers: USER });
+  check(firstApply, {
+    '첫 신청 201': (r) => r.status === 201,
+    '첫 신청 즉시 CONFIRMED': (r) => r.json('status') === 'CONFIRMED',
   });
-  const freeApplicationId = freeApply.json('id');
+  const firstApplicationId = firstApply.json('id');
 
-  check(http.post(`${API}/applications/${freeApplicationId}/confirm`, null, { headers: USER }), {
-    '확정된 신청 재확정 409': (r) => r.status === 409,
+  const second = createCampaign('k6 smoke (2)');
+  waitUntilOpen(second.shortCode);
+
+  const secondApply = http.post(`${API}/campaigns/${second.id}/apply`, null, { headers: USER });
+  check(secondApply, {
+    '두 번째 신청 201': (r) => r.status === 201,
+    '두 번째 신청 즉시 CONFIRMED': (r) => r.json('status') === 'CONFIRMED',
   });
+  const secondApplicationId = secondApply.json('id');
 
-  // 결제 있는 캠페인 — apply는 자리만 잡고 PENDING으로 둔다.
-  const paid = createCampaign('k6 smoke (paid)', true);
-  waitUntilOpen(paid.shortCode);
-
-  const paidApply = http.post(`${API}/campaigns/${paid.id}/apply`, null, { headers: USER });
-  check(paidApply, {
-    '유료 신청 201': (r) => r.status === 201,
-    '유료 신청 PENDING': (r) => r.json('status') === 'PENDING',
-    '만료 시각 내려옴': (r) => !!r.json('expiresAt'),
-  });
-  const paidApplicationId = paidApply.json('id');
-
-  check(http.get(`${API}/campaigns/${paid.shortCode}`), {
-    'PENDING도 재고를 잡는다': (r) => r.json('remainingStock') === 9,
+  check(http.get(`${API}/campaigns/${second.shortCode}`), {
+    '확정 신청이 재고를 잡는다': (r) => r.json('remainingStock') === 9,
   });
 
-  // 결제는 confirm에서 일어난다.
-  const confirmRes = http.post(`${API}/applications/${paidApplicationId}/confirm`, null, {
-    headers: USER,
-  });
-  check(confirmRes, {
-    '확정 200': (r) => r.status === 200,
-    '확정 CONFIRMED': (r) => r.json('status') === 'CONFIRMED',
-    '거래번호 발급': (r) => !!r.json('transactionId'),
-  });
-
-  check(http.post(`${API}/campaigns/${paid.id}/apply`, null, { headers: USER }), {
+  check(http.post(`${API}/campaigns/${second.id}/apply`, null, { headers: USER }), {
     '중복 신청 409': (r) => r.status === 409,
   });
 
   // 역할별 상세 조회.
-  check(http.get(`${API}/campaigns/${paid.shortCode}`), {
+  check(http.get(`${API}/campaigns/${second.shortCode}`), {
     '비로그인 조회 200': (r) => r.status === 200,
     '비로그인 역할 GUEST': (r) => r.json('viewerRole') === 'GUEST',
   });
-  check(http.get(`${API}/campaigns/${paid.shortCode}`, { headers: USER }), {
+  check(http.get(`${API}/campaigns/${second.shortCode}`, { headers: USER }), {
     '참여자 역할 PARTICIPANT': (r) => r.json('viewerRole') === 'PARTICIPANT',
     '내 신청 내역 포함': (r) => r.json('myApplication.status') === 'CONFIRMED',
   });
-  check(http.get(`${API}/campaigns/${paid.shortCode}`, { headers: OWNER }), {
+  check(http.get(`${API}/campaigns/${second.shortCode}`, { headers: OWNER }), {
     '개설자 역할 OWNER': (r) => r.json('viewerRole') === 'OWNER',
     '확정 수 노출': (r) => r.json('confirmedCount') === 1,
   });
@@ -98,7 +81,7 @@ export default function () {
   // 목록 조회. DB가 이전 실행 데이터를 갖고 있을 수 있으므로 개수가 아니라 포함 여부를 본다.
   const hasBoth = (r) => {
     const ids = r.json('campaigns').map((c) => c.id);
-    return ids.includes(free.id) && ids.includes(paid.id);
+    return ids.includes(first.id) && ids.includes(second.id);
   };
   check(http.get(`${API}/campaigns?scope=owned`, { headers: OWNER }), {
     '내가 만든 행사 200': (r) => r.status === 200,
@@ -109,51 +92,49 @@ export default function () {
   });
 
   // 정원은 늘리는 것만 가능하다.
-  check(http.patch(`${API}/campaigns/${paid.id}`, JSON.stringify({ totalStock: 20 }), {
+  check(http.patch(`${API}/campaigns/${second.id}`, JSON.stringify({ totalStock: 20 }), {
     headers: OWNER,
   }), {
     '정원 증원 200': (r) => r.status === 200,
     '잔여 재고 반영': (r) => r.json('remainingStock') === 19,
   });
-  check(http.patch(`${API}/campaigns/${paid.id}`, JSON.stringify({ totalStock: 5 }), {
+  check(http.patch(`${API}/campaigns/${second.id}`, JSON.stringify({ totalStock: 5 }), {
     headers: OWNER,
   }), { '정원 감원 409': (r) => r.status === 409 });
 
-  check(http.del(`${API}/campaigns/${paid.id}`, null, { headers: OWNER }), {
+  check(http.del(`${API}/campaigns/${second.id}`, null, { headers: OWNER }), {
     '신청자 있는 캠페인 삭제 409': (r) => r.status === 409,
   });
 
-  // 취소 — 결제가 없던 신청은 외부 호출 없이 끝난다.
-  check(http.post(`${API}/applications/${freeApplicationId}/cancel`, null, { headers: USER }), {
-    '무료 취소 200': (r) => r.status === 200,
-    '무료 취소 CANCELLED': (r) => r.json('status') === 'CANCELLED',
-    '무료 취소 환불 불필요': (r) => r.json('refundStatus') === 'NOT_REQUIRED',
+  // 취소 — 외부 호출 없이 그 자리에서 끝나고 재고가 즉시 돌아온다.
+  check(http.post(`${API}/applications/${firstApplicationId}/cancel`, null, { headers: USER }), {
+    '첫 취소 200': (r) => r.status === 200,
+    '첫 취소 CANCELLED': (r) => r.json('status') === 'CANCELLED',
   });
-  check(http.get(`${API}/campaigns/${free.shortCode}`), {
-    '무료 취소 후 재고 복원': (r) => r.json('remainingStock') === 10,
+  check(http.get(`${API}/campaigns/${first.shortCode}`), {
+    '첫 취소 후 재고 복원': (r) => r.json('remainingStock') === 10,
   });
 
-  check(http.post(`${API}/applications/${freeApplicationId}/cancel`, null, { headers: USER }), {
+  check(http.post(`${API}/applications/${firstApplicationId}/cancel`, null, { headers: USER }), {
     '중복 취소 409': (r) => r.status === 409,
   });
-  check(http.post(`${API}/applications/${paidApplicationId}/cancel`, null, {
+  check(http.post(`${API}/applications/${secondApplicationId}/cancel`, null, {
     headers: { 'X-User-Id': '999' },
   }), { '남의 신청 취소 403': (r) => r.status === 403 });
 
-  check(http.post(`${API}/applications/${paidApplicationId}/cancel`, null, { headers: USER }), {
-    '유료 취소 200': (r) => r.status === 200,
-    '유료 취소 CANCELLED': (r) => r.json('status') === 'CANCELLED',
-    '유료 취소 환불 완료': (r) => r.json('refundStatus') === 'COMPLETED',
+  check(http.post(`${API}/applications/${secondApplicationId}/cancel`, null, { headers: USER }), {
+    '두 번째 취소 200': (r) => r.status === 200,
+    '두 번째 취소 CANCELLED': (r) => r.json('status') === 'CANCELLED',
   });
-  check(http.get(`${API}/campaigns/${paid.shortCode}`), {
-    '유료 취소 후 재고 복원': (r) => r.json('remainingStock') === 20,
+  check(http.get(`${API}/campaigns/${second.shortCode}`), {
+    '두 번째 취소 후 재고 복원': (r) => r.json('remainingStock') === 20,
   });
 
   // 유효한 신청이 모두 빠지면 삭제할 수 있다.
-  check(http.del(`${API}/campaigns/${paid.id}`, null, { headers: OWNER }), {
+  check(http.del(`${API}/campaigns/${second.id}`, null, { headers: OWNER }), {
     '취소 후 캠페인 삭제 204': (r) => r.status === 204,
   });
-  check(http.get(`${API}/campaigns/${paid.shortCode}`), {
+  check(http.get(`${API}/campaigns/${second.shortCode}`), {
     '삭제된 캠페인 조회 410': (r) => r.status === 410,
   });
 
@@ -163,13 +144,13 @@ export default function () {
 // 행사 안내 정보(detail)
 function detailChecks() {
   // 안 넣으면 null이다.
-  const bare = createCampaign('k6 detail (없음)', false);
+  const bare = createCampaign('k6 detail (없음)');
   check(http.get(`${API}/campaigns/${bare.shortCode}`), {
     'detail 없으면 null': (r) => r.json('detail') === null,
   });
 
   // 일부만 넣어도 된다.
-  const partial = createCampaign('k6 detail (일부)', false, { location: '올림픽공원' });
+  const partial = createCampaign('k6 detail (일부)', { location: '올림픽공원' });
   check(http.get(`${API}/campaigns/${partial.shortCode}`), {
     '일부 필드만 저장': (r) =>
       r.json('detail.location') === '올림픽공원' && r.json('detail.content') === null,
@@ -186,7 +167,7 @@ function detailChecks() {
     contact: 'help@example.com',
     price: 30000,
   };
-  const rich = createCampaign('k6 detail (전체)', false, full);
+  const rich = createCampaign('k6 detail (전체)', full);
   const detailRes = http.get(`${API}/campaigns/${rich.shortCode}`);
   check(detailRes, {
     '본문 저장': (r) => r.json('detail.content') === full.content,
@@ -230,7 +211,6 @@ function detailChecks() {
       title: 'k6 detail (초과)',
       totalStock: 1,
       openAt: new Date(Date.now() + 60000).toISOString().slice(0, 19),
-      requiresPayment: false,
       detail: { content: 'x'.repeat(5001) },
     }), { headers: OWNER }), {
     '본문 5000자 초과 400': (r) => r.status === 400,

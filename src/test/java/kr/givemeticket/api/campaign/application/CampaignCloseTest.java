@@ -19,7 +19,8 @@ class CampaignCloseTest {
 
     private static final Long CAMPAIGN_ID = 1L;
     private static final Long OWNER_ID = 10L;
-    private static final LocalDateTime OPEN_AT = LocalDateTime.of(2026, 9, 1, 10, 0);
+    // "미래여야 한다"를 서비스가 보게 됐으므로 기준 시각을 고정하지 않는다.
+    private static final LocalDateTime OPEN_AT = LocalDateTime.now().plusDays(7).withNano(0);
 
     private final FakeCampaignRepository campaignRepository = new FakeCampaignRepository();
     private final FakeStockRepository stockRepository = new FakeStockRepository();
@@ -32,7 +33,7 @@ class CampaignCloseTest {
     @DisplayName("종료하면 상태가 CLOSED 가 되고 신청 게이트가 사라진다")
     void closesCampaign() {
         Campaign campaign = given(CampaignStatus.OPEN);
-        stateRepository.states.put(CAMPAIGN_ID, new CampaignState(false, 100));
+        stateRepository.states.put(CAMPAIGN_ID, new CampaignState(100));
 
         campaignService.closeCampaign(CAMPAIGN_ID, OWNER_ID);
 
@@ -96,7 +97,7 @@ class CampaignCloseTest {
     private Campaign given(CampaignStatus status) {
         Campaign campaign = new Campaign(
                 OWNER_ID, "3AbCdEfGh1", "테스트 행사", CampaignType.TICKET,
-                100, OPEN_AT, false, null);
+                100, OPEN_AT, null);
         TestEntities.with(campaign, "id", CAMPAIGN_ID);
         TestEntities.with(campaign, "status", status);
 

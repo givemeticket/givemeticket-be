@@ -64,7 +64,6 @@ public class CampaignService {
                 CampaignType.TICKET,
                 request.totalStock(),
                 request.openAt(),
-                request.requiresPayment(),
                 CampaignDetailCommand.toCampaignDetailOrNull(request.detail()));
         Campaign saved = campaignRepository.save(campaign);
 
@@ -234,18 +233,28 @@ public class CampaignService {
      *
      * <p>미룰 때는 신청 게이트를 걷어 접수를 멈춘다. 이걸 두고 시각만 바꾸면
      * "아직 안 열린 행사인데 신청은 받는" 상태가 된다. 새 시각이 되면 스케줄러가 다시 연다.
+     *
+     * <p>여기까지 왔다는 건 값이 실제로 달라졌다는 뜻이다. 그래서 "미래여야 한다"를 여기서 본다.
+     * 요청 DTO 에서 보면 이미 오픈된(= openAt 이 과거인) 행사의 폼을 그대로 되돌려 보내는 것조차
+     * 막힌다.
+     *
+     * <p>둘 다 걸리는 요청에는 "미룰 수만 있다"를 먼저 알려준다. 이미 오픈된 행사에서는
+     * 그쪽이 사용자가 실제로 어겨야 하는 규칙이다.
      */
     private void changeOpenAt(Campaign campaign, LocalDateTime openAt, boolean opened) {
         if (campaign.isClosed()) {
             // 그냥 두면 미래로 미루는 순간 SCHEDULED 로 돌아가 종료한 행사가 다시 열린다.
             throw CampaignApplicationException.campaignClosed();
         }
+        if (opened && !openAt.isAfter(campaign.getOpenAt())) {
+            throw CampaignApplicationException.openAtNotDelayable();
+        }
+        if (!openAt.isAfter(LocalDateTime.now())) {
+            throw CampaignApplicationException.openAtNotFuture();
+        }
         if (!opened) {
             campaign.changeOpenAt(openAt);
             return;
-        }
-        if (!openAt.isAfter(campaign.getOpenAt())) {
-            throw CampaignApplicationException.openAtNotDelayable();
         }
 
         campaign.delayOpenAt(openAt);
@@ -269,8 +278,7 @@ public class CampaignService {
         stockRepository.increaseBy(campaignId, delta);
 
         campaignStateRepository.find(campaignId).ifPresent(state ->
-                campaignStateRepository.save(campaignId,
-                        new CampaignState(state.requiresPayment(), totalStock)));
+                campaignStateRepository.save(campaignId, new CampaignState(totalStock)));
 
         log.info("campaign stock changed: campaignId={}, delta={}, totalStock={}",
                 campaignId, delta, totalStock);
@@ -278,7 +286,7 @@ public class CampaignService {
 
     /**
      * 행사를 종료한다. 신규 신청만 막고, 이미 확정된 신청은 그대로 둔다.
-     * 그래서 삭제와 달리 취소도 환불도 일어나지 않고 트랜잭션 하나로 끝난다.
+     * 그래서 삭제와 달리 취소가 일어나지 않고 트랜잭션 하나로 끝난다.
      *
      * <p>재고 키는 지우지 않는다. 종료된 뒤에도 몇 자리가 나갔는지는 보여야 한다.
      *
@@ -299,9 +307,9 @@ public class CampaignService {
     }
 
     /**
-     * 신청자가 있어도 삭제할 수 있다. 남은 신청은 전부 취소되고, 결제된 건은 환불된다.
+     * 신청자가 있어도 삭제할 수 있다. 남은 신청은 전부 취소된다.
      *
-     * <p>환불이 신청 수만큼 외부 호출을 일으키므로 트랜잭션으로 감싸지 않는다.
+     * <p>신청 수만큼 상태 전이가 일어나므로 트랜잭션으로 감싸지 않는다.
      * 상태 전이는 {@link CampaignPersister}·{@link ApplicationPersister} 가 건별로 짧게 끊는다.
      */
     public void deleteCampaign(Long campaignId, Long userId) {
@@ -311,7 +319,7 @@ public class CampaignService {
         campaignStateRepository.remove(campaignId);
 
         if (campaignPersister.markDeleted(campaignId) == 0) {
-            // 그 사이 다른 요청이 이미 지웠다. 취소·환불을 두 번 돌리지 않는다.
+            // 그 사이 다른 요청이 이미 지웠다. 취소를 두 번 돌리지 않는다.
             throw CampaignApplicationException.campaignDeleted();
         }
 

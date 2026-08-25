@@ -56,6 +56,14 @@ public class CampaignApplicationException extends BusinessException {
     }
 
     /**
+     * 오픈 시각을 실제로 바꿀 때만 걸린다. 지금 값을 그대로 보낸 경우는 바꾸는 게 아니므로 통과한다.
+     */
+    public static CampaignApplicationException openAtNotFuture() {
+        return new CampaignApplicationException(HttpStatus.BAD_REQUEST, "OPEN_AT_NOT_FUTURE",
+                "openAt은 미래 시각이어야 합니다.");
+    }
+
+    /**
      * 이미 열린 행사에만 걸린다. 오픈 전 행사는 미래이기만 하면 어디로든 옮길 수 있다.
      */
     public static CampaignApplicationException openAtNotDelayable() {

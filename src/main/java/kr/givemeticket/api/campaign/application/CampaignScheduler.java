@@ -30,7 +30,7 @@ public class CampaignScheduler {
         for (Campaign campaign : targets) {
             campaign.open();
             campaignStateRepository.save(campaign.getId(),
-                    new CampaignState(campaign.isRequiresPayment(), campaign.getTotalStock()));
+                    new CampaignState(campaign.getTotalStock()));
             log.info("campaign opened: id={}, title={}", campaign.getId(), campaign.getTitle());
         }
     }

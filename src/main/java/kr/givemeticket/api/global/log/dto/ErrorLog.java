@@ -24,7 +24,7 @@ public record ErrorLog(
     }
 
     /**
-     * 결제 게이트웨이 등 외부 시스템 호출 실패.
+     * 소셜 로그인 제공자 등 외부 시스템 호출 실패.
      */
     public static ErrorLog externalError(int status, Throwable e, String code) {
         return new ErrorLog(LogType.EXTERNAL_ERROR, status, code, e.getMessage(),

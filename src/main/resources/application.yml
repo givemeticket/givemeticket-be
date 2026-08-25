@@ -58,17 +58,6 @@ external:
     connect-timeout: ${NAVER_CONNECT_TIMEOUT:2s}
     read-timeout: ${NAVER_READ_TIMEOUT:3s}
 
-payment:
-  base-url: ${PAYMENT_BASE_URL:http://localhost:8081}
-  connect-timeout-ms: ${PAYMENT_CONNECT_TIMEOUT_MS:2000}
-  read-timeout-ms: ${PAYMENT_READ_TIMEOUT_MS:3000}
-
-application:
-  # apply 후 confirm까지 자리를 잡아둘 수 있는 시간. 사용자가 결제창에 머무는 시간이다.
-  hold-duration: ${APPLICATION_HOLD_DURATION:2m}
-  expire-scheduler-delay-ms: ${APPLICATION_EXPIRE_SCHEDULER_DELAY_MS:10000}
-  expire-batch-size: ${APPLICATION_EXPIRE_BATCH_SIZE:200}
-
 springdoc:
   api-docs:
     enabled: ${SWAGGER_ENABLED:true}

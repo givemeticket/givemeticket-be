@@ -111,9 +111,7 @@ public interface CampaignApiSpec {
             description = """
                     개설자만 호출할 수 있습니다. 더 이상 신청을 받지 않고 status 가 CLOSED 가 됩니다.
 
-                    - 이미 확정된 신청은 그대로 유효합니다. 삭제와 달리 취소도 환불도 하지 않습니다
-                    - 결제 대기(PENDING)인 신청은 홀드 시간 안에 결제를 끝낼 수 있습니다.
-                      종료 전에 이미 자리를 잡은 건이라 중간에 끊지 않습니다
+                    - 이미 확정된 신청은 그대로 유효합니다. 삭제와 달리 취소하지 않습니다
                     - 잔여 재고는 계속 조회됩니다. 몇 자리가 나갔는지는 종료 후에도 보여야 하기 때문입니다
                     - 오픈 전(SCHEDULED)인 행사도 종료할 수 있습니다. 그 경우 예정된 시각이 와도 열리지 않습니다
                     - 되돌리는 API 는 없습니다. 종료된 행사는 오픈 시각도 바꿀 수 없고
@@ -131,8 +129,6 @@ public interface CampaignApiSpec {
                     개설자만 호출할 수 있습니다. 신청자가 있어도 삭제되며, 되돌릴 수 없습니다.
 
                     - 남아 있던 신청은 전부 CANCELLED 가 되고 failureReason 에 CAMPAIGN_DELETED 가 찍힙니다
-                    - 결제가 끝난 신청은 환불이 요청됩니다. 환불에 실패해도 삭제와 취소는 되돌리지 않고
-                      로그로 남겨 뒤에서 다시 시도합니다
                     - 삭제된 캠페인을 다시 삭제하면 410 CAMPAIGN_DELETED
                     """)
     ResponseEntity<Void> deleteCampaign(

@@ -17,7 +17,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 public class GlobalExceptionHandler {
 
     /**
-     * 결제 게이트웨이·소셜 로그인 제공자 실패는 우리 잘못이 아니라 외부 의존성 문제라 따로 분류한다.
+     * 소셜 로그인 제공자 실패는 우리 잘못이 아니라 외부 의존성 문제라 따로 분류한다.
      */
     @ExceptionHandler(ExternalApiException.class)
     public ResponseEntity<ErrorResponse> handleExternalApiException(ExternalApiException e) {

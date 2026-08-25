@@ -1,6 +1,5 @@
 package kr.givemeticket.api.campaign.application;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -62,11 +61,6 @@ class FakeApplicationRepository implements ApplicationRepository {
     }
 
     @Override
-    public List<Application> findExpiredPending(LocalDateTime now, int limit) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public long countByCampaignIdAndStatusIn(
             Long campaignId, Collection<ApplicationStatus> statuses) {
         throw new UnsupportedOperationException();
@@ -75,21 +69,6 @@ class FakeApplicationRepository implements ApplicationRepository {
     @Override
     public List<Application> findAllByCampaignIdAndStatusIn(
             Long campaignId, Collection<ApplicationStatus> statuses) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public int confirmIfPending(Long applicationId, String transactionId) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public int failIfPending(Long applicationId, FailureReason reason) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public int markUnknownIfPending(Long applicationId) {
         throw new UnsupportedOperationException();
     }
 

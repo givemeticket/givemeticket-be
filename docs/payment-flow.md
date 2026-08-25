@@ -2,11 +2,20 @@
 
 재고는 확보했는데 결제가 실패하거나, 결제 결과를 끝내 모르는 경우를 어떻게 다룰지 정한다.
 
-> **구현 현황** — 2~5절, 7절, 9~13절은 구현됐다.
-> **6절(미결 정산 배치), 8절(재고 정합성 보정), 14절(메트릭)은 아직이다.**
-> `UNKNOWN`으로 떨어진 신청은 아직 스스로 해소되지 않고 재고를 잡은 채 남는다.
+> **⚠️ 폐기됨 (2026-08-24)** — 기획에서 결제 단계를 뺐다. 이 문서에 적힌 것 중
+> 지금 코드에 남아 있는 것은 없다.
 >
-> 1절은 착수 전 진단 기록이라 그대로 둔다.
+> - `POST /applications/{id}/confirm`, `PENDING` / `UNKNOWN` / `MANUAL_REVIEW` 상태,
+>   홀드 만료 sweeper, `paymentKey`·`transactionId`·`expiresAt`, `Campaign.requiresPayment`,
+>   `refundStatus` 가 모두 사라졌다
+> - 신청은 `POST /campaigns/{id}/apply` 한 번으로 재고를 잡고 그대로 `CONFIRMED` 가 된다.
+>   취소는 재고만 되돌리고 끝난다
+> - `payment-mock` 모듈은 남아 있지만 백엔드가 호출하지 않는다. 외부 의존 장애를 흉내 내는
+>   독립 서버로만 쓰며, compose 에서는 `--profile payment-mock` 으로만 뜬다
+> - 기존 DB 정리는 `docs/sql/2026-08-24-remove-payment-{1-before,2-after}-deploy.sql`
+>
+> 아래 내용은 결제를 다시 붙일 때 되짚어볼 설계 기록으로만 남겨둔다.
+> 특히 5절(실패 분기 매트릭스)과 7절(멱등성)은 그때 그대로 다시 필요해진다.
 
 ## 1. 지금 코드의 구멍 (착수 전 진단)
 

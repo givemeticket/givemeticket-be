@@ -14,7 +14,6 @@ public record CreateCampaignResponse(
         String title,
         int totalStock,
         Instant openAt,
-        boolean requiresPayment,
         CampaignDetailResponsePart detail
 ) {
 
@@ -25,7 +24,6 @@ public record CreateCampaignResponse(
                 response.title(),
                 response.totalStock(),
                 Utc.toInstant(response.openAt()),
-                response.requiresPayment(),
                 CampaignDetailResponsePart.from(response.detail())
         );
     }

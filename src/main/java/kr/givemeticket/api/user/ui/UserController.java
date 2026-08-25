@@ -21,6 +21,12 @@ public class UserController implements UserApiSpec {
     private final UserWithdrawService userWithdrawService;
 
     @Override
+    @GetMapping("users/me")
+    public ResponseEntity<GetUserResponse> readMe(@LoginUserId Long userId) {
+        return ResponseEntity.ok(GetUserResponse.from(userService.getUser(userId)));
+    }
+
+    @Override
     @GetMapping("users/{userId}")
     public ResponseEntity<GetUserResponse> readUser(@PathVariable("userId") Long userId) {
         return ResponseEntity.ok(GetUserResponse.from(userService.getUser(userId)));
