@@ -14,6 +14,15 @@ public record ApplicationResponse(
         LocalDateTime createdAt
 ) {
 
+    /**
+     * 큐에 넣기까지만 끝난 예매. 아직 행이 없지만 상태는 {@code CONFIRMED} 다 —
+     * 사용자 입장에서 자리는 이미 잡혔다. {@code createdAt} 은 저장 시점에 정해지므로 비운다.
+     */
+    public static ApplicationResponse accepted(Long id, Long campaignId, Long userId) {
+        return new ApplicationResponse(
+                id, campaignId, userId, ApplicationStatus.CONFIRMED, null, null);
+    }
+
     public static ApplicationResponse from(Application application) {
         return new ApplicationResponse(
                 application.getId(),

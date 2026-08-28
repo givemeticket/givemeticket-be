@@ -36,6 +36,9 @@ public interface SpringDataJpaApplicationRepository extends JpaRepository<Applic
             @Param("statuses") Collection<ApplicationStatus> statuses,
             @Param("failureReasons") Collection<FailureReason> failureReasons);
 
+    @Query("SELECT COALESCE(MAX(a.id), 0) FROM Application a")
+    long findMaxId();
+
     long countByCampaignIdAndStatusIn(Long campaignId, Collection<ApplicationStatus> statuses);
 
     List<Application> findAllByCampaignIdAndStatusIn(

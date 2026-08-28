@@ -16,10 +16,11 @@ import org.springframework.stereotype.Repository;
 public class RedisStockRepository implements StockRepository {
 
     private static final String STOCK_KEY_PREFIX = "campaign:stock:";
+    private static final String APPLICANTS_KEY_PREFIX = "campaign:applicants:";
 
     private final StringRedisTemplate stringRedisTemplate;
-    private final RedisScript<Long> stockDecreaseScript;
-    private final RedisScript<Long> stockRestoreScript;
+    private final RedisScript<Long> seatReserveScript;
+    private final RedisScript<Long> seatRestoreScript;
 
     @Override
     public void initialize(Long campaignId, int totalStock) {
@@ -27,9 +28,11 @@ public class RedisStockRepository implements StockRepository {
     }
 
     @Override
-    public StockDecreaseResult decrease(Long campaignId) {
+    public StockDecreaseResult decrease(Long campaignId, Long userId) {
         Long result = stringRedisTemplate.execute(
-                stockDecreaseScript, List.of(key(campaignId)));
+                seatReserveScript,
+                List.of(key(campaignId), applicantsKey(campaignId)),
+                String.valueOf(userId));
 
         long value = (result == null) ? -1L : result;
         if (value == -1L) {
@@ -38,13 +41,18 @@ public class RedisStockRepository implements StockRepository {
         if (value == -2L) {
             return StockDecreaseResult.soldOut();
         }
+        if (value == -3L) {
+            return StockDecreaseResult.alreadyApplied();
+        }
         return StockDecreaseResult.success(value);
     }
 
     @Override
-    public void restore(Long campaignId, int upperBound) {
+    public void restore(Long campaignId, Long userId, int upperBound) {
         stringRedisTemplate.execute(
-                stockRestoreScript, List.of(key(campaignId)), String.valueOf(upperBound));
+                seatRestoreScript,
+                List.of(key(campaignId), applicantsKey(campaignId)),
+                String.valueOf(upperBound), String.valueOf(userId));
     }
 
     @Override
@@ -87,10 +95,15 @@ public class RedisStockRepository implements StockRepository {
 
     @Override
     public void remove(Long campaignId) {
-        stringRedisTemplate.delete(key(campaignId));
+        stringRedisTemplate.delete(List.of(key(campaignId), applicantsKey(campaignId)));
     }
 
     private String key(Long campaignId) {
         return STOCK_KEY_PREFIX + campaignId;
+    }
+
+    /** 자리를 잡은 사용자들. 중복 판정의 근거이며, 원소 수는 정원으로 상한이 잡힌다. */
+    private String applicantsKey(Long campaignId) {
+        return APPLICANTS_KEY_PREFIX + campaignId;
     }
 }

@@ -182,8 +182,8 @@ class CampaignQueryTest {
 
     private void givenApplication(
             Long campaignId, ApplicationStatus status, FailureReason failureReason) {
-        Application application = Application.confirmed(campaignId, USER_ID);
-        TestEntities.with(application, "id", campaignId);
+        // id 는 이제 채번된 값을 생성자로 받는다. 리플렉션으로 심을 필요가 없다.
+        Application application = Application.confirmed(campaignId, campaignId, USER_ID);
         TestEntities.with(application, "status", status);
         TestEntities.with(application, "failureReason", failureReason);
 

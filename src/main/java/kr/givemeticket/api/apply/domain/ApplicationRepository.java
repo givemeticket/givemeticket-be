@@ -6,7 +6,19 @@ import java.util.Optional;
 
 public interface ApplicationRepository {
 
-    Application save(Application application);
+    /**
+     * 새 예매를 저장한다. id 는 호출자가 채워서 넘긴다.
+     *
+     * <p>{@code save} 가 아닌 이유는 <b>갱신을 하지 않기</b> 때문이다. id 가 있는 엔티티를
+     * Spring Data 의 {@code save} 에 넘기면 merge 로 빠져 INSERT 앞에 SELECT 가 붙는다.
+     *
+     * @throws org.springframework.dao.DataIntegrityViolationException 같은 id 나
+     *         같은 (campaign, user) 조합이 이미 있는 경우
+     */
+    Application create(Application application);
+
+    /** 저장된 예매 중 가장 큰 id. 없으면 0. 채번 카운터 시딩에만 쓴다. */
+    long findMaxId();
 
     Optional<Application> findById(Long applicationId);
 

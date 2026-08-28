@@ -7,13 +7,19 @@ public interface StockRepository {
 
     void initialize(Long campaignId, int totalStock);
 
-    StockDecreaseResult decrease(Long campaignId);
+    /**
+     * 사용자 한 명 몫의 자리를 잡는다. 중복 확인과 재고 차감이 한 원자 연산이다.
+     *
+     * <p>{@code userId} 를 받는 이유는 중복 판정이 이제 여기 있기 때문이다. DB 유니크
+     * 제약은 최종 방어선으로 남지만, 사용자에게 답할 판정은 이 호출이 한다.
+     */
+    StockDecreaseResult decrease(Long campaignId, Long userId);
 
     /**
-     * 신청 실패·취소로 자리를 되돌린다. {@code upperBound}를 넘지 못하게 막아서,
-     * 복원이 중복 호출돼도 재고가 정원보다 커지지 않는다.
+     * 자리를 되돌린다. {@code upperBound} 를 넘지 못하게 막아 중복 호출에도 안전하다.
+     * 신청자 집합에서도 빼야 그 사용자가 다시 신청할 수 있다.
      */
-    void restore(Long campaignId, int upperBound);
+    void restore(Long campaignId, Long userId, int upperBound);
 
     /**
      * 관리자의 정원 증원.
@@ -32,5 +38,6 @@ public interface StockRepository {
      */
     Map<Long, Long> getRemainingAll(Collection<Long> campaignIds);
 
+    /** 캠페인이 사라졌다. 재고와 신청자 집합을 함께 지운다. */
     void remove(Long campaignId);
 }
