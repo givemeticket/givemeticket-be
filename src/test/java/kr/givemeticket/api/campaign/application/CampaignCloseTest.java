@@ -94,7 +94,7 @@ class CampaignCloseTest {
         given(CampaignStatus.CLOSED);
 
         assertThatThrownBy(() -> campaignService.updateCampaign(CAMPAIGN_ID, OWNER_ID,
-                new CampaignUpdateRequest(OPEN_AT.plusDays(1), null, null)))
+                new CampaignUpdateRequest(null, OPEN_AT.plusDays(1), null, null)))
                 .isInstanceOf(CampaignApplicationException.class)
                 .hasMessageContaining("종료된 행사");
     }

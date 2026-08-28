@@ -222,6 +222,8 @@ public class CampaignService {
      * 제한은 이미 열린 행사에만 건다. 아직 열리지 않았으면 신청자가 없으니
      * 오픈 시각도 정원도 자유롭게 고칠 수 있다(오픈 시각이 미래인지는 요청 DTO 가 본다).
      *
+     * <p>제목과 안내 정보는 오픈 여부와 상관없이 언제든 바꿀 수 있다. 자리 배분에 영향을 주지 않아서다.
+     *
      * <p>지금 값과 같은 값이 와도 오류로 보지 않는다. 프론트가 폼 전체를 그대로 보내는 게
      * 자연스러운데, 안 바꾼 필드까지 검사하면 정원만 늘리려 해도 막히기 때문이다.
      */
@@ -233,6 +235,10 @@ public class CampaignService {
         Campaign campaign = findManageableCampaign(campaignId, userId);
         // 오픈 시각을 미루면 상태가 SCHEDULED 로 돌아가므로, 판정 기준은 손대기 전에 잡아둔다.
         boolean opened = !campaign.isScheduled();
+
+        if (request.title() != null && !request.title().equals(campaign.getTitle())) {
+            campaign.changeTitle(request.title());
+        }
 
         if (request.openAt() != null && !request.openAt().isEqual(campaign.getOpenAt())) {
             changeOpenAt(campaign, request.openAt(), opened);

@@ -162,6 +162,44 @@ class CampaignUpdateTest {
         }
     }
 
+    @Nested
+    @DisplayName("제목은")
+    class Title {
+
+        @Test
+        @DisplayName("이미 오픈된 행사여도 바꿀 수 있다")
+        void changesTitleEvenAfterOpen() {
+            Campaign campaign = given(CampaignStatus.OPEN, 100);
+
+            campaignService.updateCampaign(CAMPAIGN_ID, OWNER_ID,
+                    new CampaignUpdateRequest("바뀐 행사", null, null, null));
+
+            assertThat(campaign.getTitle()).isEqualTo("바뀐 행사");
+            assertThat(campaign.getStatus()).isEqualTo(CampaignStatus.OPEN);
+        }
+
+        @Test
+        @DisplayName("보내지 않으면 그대로 둔다")
+        void keepsTitleWhenAbsent() {
+            Campaign campaign = given(CampaignStatus.SCHEDULED, 100);
+            stockRepository.stock.put(CAMPAIGN_ID, 100L);
+
+            campaignService.updateCampaign(CAMPAIGN_ID, OWNER_ID, request(null, 40));
+
+            assertThat(campaign.getTitle()).isEqualTo("테스트 행사");
+        }
+
+        @Test
+        @DisplayName("제목만 보내도 수정으로 인정된다")
+        void acceptsTitleOnlyRequest() {
+            given(CampaignStatus.SCHEDULED, 100);
+
+            assertThatCode(() -> campaignService.updateCampaign(CAMPAIGN_ID, OWNER_ID,
+                    new CampaignUpdateRequest("제목만 수정", null, null, null)))
+                    .doesNotThrowAnyException();
+        }
+    }
+
     private Campaign given(CampaignStatus status, int totalStock) {
         return given(status, totalStock, OPEN_AT);
     }
@@ -178,7 +216,7 @@ class CampaignUpdateTest {
     }
 
     private static CampaignUpdateRequest request(LocalDateTime openAt, Integer totalStock) {
-        return new CampaignUpdateRequest(openAt, totalStock, null);
+        return new CampaignUpdateRequest(null, openAt, totalStock, null);
     }
 
 }

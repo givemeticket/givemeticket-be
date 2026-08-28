@@ -86,6 +86,10 @@ public class Campaign extends BaseEntity {
         this.status = CampaignStatus.DELETED;
     }
 
+    public void changeTitle(String title) {
+        this.title = title;
+    }
+
     public void changeOpenAt(LocalDateTime openAt) {
         this.openAt = openAt;
     }

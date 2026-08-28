@@ -9,12 +9,13 @@ import kr.givemeticket.api.campaign.application.dto.CampaignDetailCommand;
  * @param detail 지정하면 통째로 교체된다. 빈 값으로 보내면 안내 정보가 지워진다
  */
 public record CampaignUpdateRequest(
+        String title,
         LocalDateTime openAt,
         Integer totalStock,
         CampaignDetailCommand detail
 ) {
 
     public boolean isEmpty() {
-        return openAt == null && totalStock == null && detail == null;
+        return title == null && openAt == null && totalStock == null && detail == null;
     }
 }
