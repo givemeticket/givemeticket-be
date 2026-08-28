@@ -11,6 +11,7 @@ import kr.givemeticket.api.global.time.Utc;
 public record PatchCampaignResponse(
         Long id,
         String shortCode,
+        String title,
         int totalStock,
         Instant openAt,
         CampaignStatus status,
@@ -21,6 +22,7 @@ public record PatchCampaignResponse(
         return new PatchCampaignResponse(
                 response.id(),
                 response.shortCode(),
+                response.title(),
                 response.totalStock(),
                 Utc.toInstant(response.openAt()),
                 response.status(),

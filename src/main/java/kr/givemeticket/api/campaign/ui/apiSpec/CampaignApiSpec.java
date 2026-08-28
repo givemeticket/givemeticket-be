@@ -84,6 +84,9 @@ public interface CampaignApiSpec {
             description = """
                     개설자만 호출할 수 있습니다. 제한은 이미 오픈된 행사에만 걸립니다.
 
+                    title 은 오픈 여부와 상관없이 언제든 바꿀 수 있습니다. 보내지 않으면 그대로 두고,
+                    보낸다면 공백일 수 없습니다(400).
+
                     아직 오픈 전(status=SCHEDULED)이면
                     - openAt 은 미래 시각이기만 하면 앞당기든 미루든 자유입니다
                     - totalStock 도 자유롭습니다. 신청자가 없으므로 줄여도 됩니다
