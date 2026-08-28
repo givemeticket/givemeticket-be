@@ -2,11 +2,12 @@ package kr.givemeticket.api.apply.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import kr.givemeticket.api.global.domain.BaseEntity;
+import kr.givemeticket.api.global.domain.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -21,7 +22,15 @@ import org.hibernate.type.SqlTypes;
                         columnNames = {"campaign_id", "user_id"})
         })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Application extends BaseEntity {
+public class Application extends BaseTimeEntity {
+
+    /**
+     * DB 가 발급하지 않는다. 좌석 선점 시점에 Redis 에서 채번한 값을 받는다.
+     * 응답을 먼저 내보낼 수 있고, 저장이 재시도돼도 같은 PK 라 행이 늘지 않는다.
+     */
+    @Id
+    @Column(name = "id", nullable = false)
+    private Long id;
 
     @Column(name = "campaign_id", nullable = false)
     private Long campaignId;
@@ -39,14 +48,15 @@ public class Application extends BaseEntity {
     @Column(name = "failure_reason", length = 32)
     private FailureReason failureReason;
 
-    private Application(Long campaignId, Long userId, ApplicationStatus status) {
+    private Application(Long id, Long campaignId, Long userId, ApplicationStatus status) {
+        this.id = id;
         this.campaignId = campaignId;
         this.userId = userId;
         this.status = status;
     }
 
-    public static Application confirmed(Long campaignId, Long userId) {
-        return new Application(campaignId, userId, ApplicationStatus.CONFIRMED);
+    public static Application confirmed(Long id, Long campaignId, Long userId) {
+        return new Application(id, campaignId, userId, ApplicationStatus.CONFIRMED);
     }
 
     /**

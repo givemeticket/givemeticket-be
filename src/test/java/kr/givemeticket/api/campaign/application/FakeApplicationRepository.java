@@ -46,7 +46,12 @@ class FakeApplicationRepository implements ApplicationRepository {
     }
 
     @Override
-    public Application save(Application application) {
+    public Application create(Application application) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public long findMaxId() {
         throw new UnsupportedOperationException();
     }
 

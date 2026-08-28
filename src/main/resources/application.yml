@@ -67,6 +67,45 @@ campaign:
       ttl: ${CAMPAIGN_LOCAL_CACHE_TTL:30s}
       max-size: ${CAMPAIGN_LOCAL_CACHE_MAX_SIZE:6000}
 
+reservation:
+  queue:
+    # 좌석 선점 후 예매를 MySQL 에 저장하는 일을 요청 스레드에서 떼어내는 큐.
+    stream-key: ${RESERVATION_STREAM_KEY:reservation:stream}
+    group: ${RESERVATION_STREAM_GROUP:reservation-workers}
+    # 아래 둘은 이름만 잡아둔 상태다. 지연 재시도와 DLQ 단계에서 쓰기 시작한다.
+    delay-queue-key: ${RESERVATION_DELAY_QUEUE_KEY:reservation:retry}
+    dlq-stream-key: ${RESERVATION_DLQ_STREAM_KEY:reservation:dlq}
+    # XACK 은 스트림을 비우지 않는다. 이 상한이 없으면 성공한 메시지가 계속 쌓인다.
+    max-length: ${RESERVATION_STREAM_MAX_LENGTH:100000}
+  worker:
+    # API 인스턴스 안에서 돌기 때문에 전용 풀로 가둔다. DB 커넥션 풀(기본 10)보다 작아야
+    # 워커가 커넥션을 다 가져가 취소·조회가 굶는 일이 없다.
+    threads: ${RESERVATION_WORKER_THREADS:2}
+    batch-size: ${RESERVATION_WORKER_BATCH_SIZE:10}
+    poll-timeout: ${RESERVATION_WORKER_POLL_TIMEOUT:2s}
+  retry:
+    # 대기 시간 = base-delay × 2^attempt + jitter(0~jitter 난수), max-delay 로 상한.
+    # 난수는 상한 위에도 얹는다. 상한에 걸린 메시지가 같은 시각에 몰리는 것이
+    # 애초에 피하려던 일이기 때문이다.
+    base-delay: ${RESERVATION_RETRY_BASE_DELAY:1s}
+    max-delay: ${RESERVATION_RETRY_MAX_DELAY:30s}
+    jitter: ${RESERVATION_RETRY_JITTER:1s}
+    max-attempts: ${RESERVATION_RETRY_MAX_ATTEMPTS:5}
+    poll-interval-ms: ${RESERVATION_RETRY_POLL_INTERVAL_MS:1000}
+    promote-batch-size: ${RESERVATION_RETRY_PROMOTE_BATCH_SIZE:100}
+
+slack:
+  # 비워 두면 알림을 보내지 않고 로그로만 남긴다. 운영에서는 반드시 채운다 —
+  # 아무도 모르는 DLQ 는 없는 것과 같다.
+  webhook-url: ${SLACK_WEBHOOK_URL:}
+  connect-timeout-ms: ${SLACK_CONNECT_TIMEOUT_MS:2000}
+  read-timeout-ms: ${SLACK_READ_TIMEOUT_MS:3000}
+
+admin:
+  # 비워 두면 어드민 API 가 아예 열리지 않는다. 설정을 잊고 배포해도 안전하도록
+  # 기본값을 빈 문자열로 둔다.
+  api-key: ${ADMIN_API_KEY:}
+
 springdoc:
   api-docs:
     enabled: ${SWAGGER_ENABLED:true}

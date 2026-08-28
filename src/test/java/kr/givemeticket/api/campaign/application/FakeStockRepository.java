@@ -57,12 +57,12 @@ class FakeStockRepository implements StockRepository {
     }
 
     @Override
-    public StockDecreaseResult decrease(Long campaignId) {
+    public StockDecreaseResult decrease(Long campaignId, Long userId) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void restore(Long campaignId, int upperBound) {
+    public void restore(Long campaignId, Long userId, int upperBound) {
         throw new UnsupportedOperationException();
     }
 
