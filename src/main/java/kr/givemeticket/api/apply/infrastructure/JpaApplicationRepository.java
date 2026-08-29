@@ -64,7 +64,8 @@ public class JpaApplicationRepository implements ApplicationRepository {
     @Override
     public List<Application> findAllByCampaignIdAndStatusIn(
             Long campaignId, Collection<ApplicationStatus> statuses) {
-        return springDataJpaApplicationRepository.findAllByCampaignIdAndStatusIn(campaignId, statuses);
+        return springDataJpaApplicationRepository
+                .findAllByCampaignIdAndStatusInOrderByAppliedAtAsc(campaignId, statuses);
     }
 
     @Override

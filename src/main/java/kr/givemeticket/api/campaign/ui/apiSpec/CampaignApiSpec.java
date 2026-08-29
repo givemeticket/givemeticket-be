@@ -69,9 +69,11 @@ public interface CampaignApiSpec {
                     - 카드마다 재고를 따로 부르지 않도록 remainingStock/soldOut 이 함께 내려갑니다.
                       삭제된 행사이거나 재고를 읽지 못하면 두 값이 null 입니다
                     - 삭제한 행사도 status=DELETED 로 남습니다. 목록에서 지우지 않고 "삭제됨"으로
-                      보여주면 됩니다. participated 도 마찬가지로, 주최자가 지운 행사는
-                      myApplicationStatus=CANCELLED 인 채로 남습니다. 다만 내가 직접 취소한 행사는
-                      빠집니다 — 사라진 이유를 이미 알고 있으니까요
+                      보여주면 됩니다. participated 도 마찬가지로, 주최자가 지운 행사와
+                      주최자가 내 신청만 취소한 행사는 myApplicationStatus=CANCELLED 인 채로
+                      남습니다. 다만 내가 직접 취소한 행사는 빠집니다 — 사라진 이유를 이미
+                      알고 있으니까요. 왜 취소됐는지는 GET /applications/{applicationId} 의
+                      failureReason 으로 구분하세요
                     """)
     ResponseEntity<GetCampaignsResponse> readCampaigns(
             @Parameter(hidden = true) @LoginUserId Long userId,

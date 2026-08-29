@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.lang.reflect.Field;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -52,6 +53,7 @@ class ApplyPipelineTest {
 
     private final ApplicationService service = new ApplicationService(
             applicationRepository,
+            null,
             new ApplicationPersister(applicationRepository),
             null,
             stateRepository,
@@ -179,7 +181,7 @@ class ApplyPipelineTest {
     }
 
     private static Application cancelledRow(Long id) {
-        Application application = Application.confirmed(id, CAMPAIGN_ID, USER_ID);
+        Application application = Application.confirmed(id, CAMPAIGN_ID, USER_ID, LocalDateTime.now());
         set(application, "status", ApplicationStatus.CANCELLED);
         set(application, "failureReason", FailureReason.CAMPAIGN_DELETED);
         return application;

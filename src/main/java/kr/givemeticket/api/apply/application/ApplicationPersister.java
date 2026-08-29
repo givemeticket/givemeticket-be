@@ -25,11 +25,11 @@ public class ApplicationPersister {
     public void persist(ReservationEvent event) {
         Application existing = applicationRepository.findById(event.applicationId()).orElse(null);
         if (existing != null) {
-            existing.reserveConfirmed();
+            existing.reserveConfirmed(event.occurredAt());
             return;
         }
         applicationRepository.create(Application.confirmed(
-                event.applicationId(), event.campaignId(), event.userId()));
+                event.applicationId(), event.campaignId(), event.userId(), event.occurredAt()));
     }
 
     @Transactional
@@ -47,5 +47,15 @@ public class ApplicationPersister {
     public int cancelByUserWithdrawal(Long applicationId) {
         return applicationRepository.cancelWithReason(
                 applicationId, ApplicationStatus.active(), FailureReason.USER_WITHDRAWN);
+    }
+
+    /**
+     * 주최자가 신청 하나를 취소한다. 확정된 건만 대상이며, 0행이면 그 사이 신청자가
+     * 직접 취소한 것이므로 호출자는 재고를 건드리면 안 된다.
+     */
+    @Transactional
+    public int cancelByOwner(Long applicationId) {
+        return applicationRepository.cancelWithReason(
+                applicationId, ApplicationStatus.active(), FailureReason.CANCELLED_BY_OWNER);
     }
 }

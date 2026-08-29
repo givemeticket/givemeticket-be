@@ -1,7 +1,9 @@
 package kr.givemeticket.api.apply.application;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -70,10 +72,16 @@ class FakeApplicationRepository implements ApplicationRepository {
         throw new UnsupportedOperationException();
     }
 
+    /** 실제 쿼리처럼 신청 시각 오름차순으로 돌려준다. 목록의 순서가 곧 선착순이다. */
     @Override
     public List<Application> findAllByCampaignIdAndStatusIn(
             Long campaignId, Collection<ApplicationStatus> statuses) {
-        throw new UnsupportedOperationException();
+        return rows.values().stream()
+                .filter(a -> a.getCampaignId().equals(campaignId))
+                .filter(a -> statuses.contains(a.getStatus()))
+                .sorted(Comparator.comparing(
+                        Application::appliedAt, Comparator.nullsFirst(Comparator.naturalOrder())))
+                .toList();
     }
 
     @Override
@@ -81,9 +89,26 @@ class FakeApplicationRepository implements ApplicationRepository {
         throw new UnsupportedOperationException();
     }
 
+    /** 조건부 UPDATE 를 흉내낸다. 조건에 맞지 않으면 0행이다. */
     @Override
     public int cancelWithReason(Long applicationId, Collection<ApplicationStatus> statuses,
                                 FailureReason reason) {
-        throw new UnsupportedOperationException();
+        Application application = rows.get(applicationId);
+        if (application == null || !statuses.contains(application.getStatus())) {
+            return 0;
+        }
+        set(application, "status", ApplicationStatus.CANCELLED);
+        set(application, "failureReason", reason);
+        return 1;
+    }
+
+    private static void set(Object target, String field, Object value) {
+        try {
+            Field f = target.getClass().getDeclaredField(field);
+            f.setAccessible(true);
+            f.set(target, value);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
     }
 }

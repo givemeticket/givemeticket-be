@@ -2,6 +2,10 @@ package kr.givemeticket.api.apply.application;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import kr.givemeticket.api.apply.application.dto.response.ApplicantResponse;
 import kr.givemeticket.api.apply.application.dto.response.ApplicationResponse;
 import kr.givemeticket.api.apply.domain.Application;
 import kr.givemeticket.api.apply.domain.ApplicationRepository;
@@ -18,6 +22,8 @@ import kr.givemeticket.api.campaign.domain.CampaignState;
 import kr.givemeticket.api.campaign.domain.CampaignStateRepository;
 import kr.givemeticket.api.campaign.domain.StockDecreaseResult;
 import kr.givemeticket.api.campaign.domain.StockRepository;
+import kr.givemeticket.api.user.application.UserService;
+import kr.givemeticket.api.user.application.dto.response.UserResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ApplicationService {
 
     private final ApplicationRepository applicationRepository;
+    private final UserService userService;
     private final ApplicationPersister applicationPersister;
     private final CampaignRepository campaignRepository;
     private final CampaignStateRepository campaignStateRepository;
@@ -95,6 +102,57 @@ public class ApplicationService {
                 application.getCampaignId(), application.getUserId(), campaign.getTotalStock());
         log.info("application cancelled: applicationId={}, campaignId={}",
                 applicationId, application.getCampaignId());
+
+        return currentStateOf(applicationId);
+    }
+
+    /**
+     * 주최자가 보는 신청자 목록. 자리를 잡고 있는(CONFIRMED) 신청만, 신청한 순서대로 내려간다.
+     *
+     * <p>사용자 정보는 캠페인 목록과 같은 방식으로 한 번에 모아 온다. 신청자가 100명이어도
+     * 유저 조회는 1번이다.
+     *
+     * <p>방금 들어온 신청은 워커가 행을 만들기 전이라 잠깐 빠져 있을 수 있다. 재고와 달리
+     * 이 목록은 실시간 판단의 근거가 아니라 주최자가 훑어보는 화면이라 그대로 둔다.
+     */
+    @Transactional(readOnly = true)
+    public List<ApplicantResponse> getApplicants(Long campaignId, Long ownerId) {
+        findManageableCampaign(campaignId, ownerId);
+
+        List<Application> applications = applicationRepository
+                .findAllByCampaignIdAndStatusIn(campaignId, ApplicationStatus.active());
+
+        Set<Long> userIds = applications.stream()
+                .map(Application::getUserId)
+                .collect(Collectors.toSet());
+        Map<Long, UserResponse> userById = userService.findUsers(userIds);
+
+        return applications.stream()
+                .map(application ->
+                        ApplicantResponse.of(application, userById.get(application.getUserId())))
+                .toList();
+    }
+
+    /**
+     * 주최자가 신청자 한 명을 내보낸다. 비운 자리는 곧바로 다른 사람이 쓸 수 있어야 하므로
+     * 재고를 되돌린다.
+     *
+     * <p>내보낸 사람이 다시 신청하는 것은 막지 않는다. 이건 차단이 아니라 취소다.
+     *
+     * <p>종료된 행사에서도 부를 수 있다. 신규 신청만 막혔을 뿐 확정된 신청은 살아 있어서,
+     * 그걸 정리할 수단이 주최자에게 있어야 한다.
+     */
+    public ApplicationResponse cancelByOwner(Long campaignId, Long applicationId, Long ownerId) {
+        Campaign campaign = findManageableCampaign(campaignId, ownerId);
+        Application application = findApplicationOf(campaign, applicationId);
+
+        if (applicationPersister.cancelByOwner(applicationId) == 0) {
+            throw ApplyApplicationException.notCancelable(currentStatusOf(applicationId));
+        }
+
+        stockRepository.restore(campaignId, application.getUserId(), campaign.getTotalStock());
+        log.info("application cancelled by owner: applicationId={}, campaignId={}, ownerId={}",
+                applicationId, campaignId, ownerId);
 
         return currentStateOf(applicationId);
     }
@@ -192,6 +250,35 @@ public class ApplicationService {
             case SOLD_OUT -> throw CampaignApplicationException.soldOut();
             case SUCCESS -> { }
         }
+    }
+
+    /**
+     * 주최자 권한이 필요한 조회·취소의 관문. 규칙은 {@code CampaignService} 의 같은 이름
+     * 메서드와 같다 — 삭제된 행사는 410, 남의 행사는 403.
+     */
+    private Campaign findManageableCampaign(Long campaignId, Long ownerId) {
+        Campaign campaign = campaignRepository.findById(campaignId)
+                .orElseThrow(CampaignApplicationException::campaignNotFound);
+        if (campaign.isDeleted()) {
+            throw CampaignApplicationException.campaignDeleted();
+        }
+        if (!campaign.isOwnedBy(ownerId)) {
+            throw CampaignApplicationException.notOwner();
+        }
+        return campaign;
+    }
+
+    /**
+     * 다른 행사의 신청 번호를 넣어 남의 신청을 취소하지 못하게 한다. 이 캠페인의 것이
+     * 아니면 존재 자체를 알려주지 않고 404 로 끊는다.
+     */
+    private Application findApplicationOf(Campaign campaign, Long applicationId) {
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(ApplyApplicationException::applicationNotFound);
+        if (!application.getCampaignId().equals(campaign.getId())) {
+            throw ApplyApplicationException.applicationNotFound();
+        }
+        return application;
     }
 
     private Application findOwnedApplication(Long applicationId, Long userId) {

@@ -4,8 +4,10 @@ import java.net.URI;
 import kr.givemeticket.api.apply.application.ApplicationService;
 import kr.givemeticket.api.apply.ui.apiSpec.ApplicationApiSpec;
 import kr.givemeticket.api.apply.ui.dto.response.ApplyResponse;
+import kr.givemeticket.api.apply.ui.dto.response.CancelApplicantResponse;
 import kr.givemeticket.api.apply.ui.dto.response.CancelApplicationResponse;
 import kr.givemeticket.api.apply.ui.dto.response.GetApplicationResponse;
+import kr.givemeticket.api.apply.ui.dto.response.GetCampaignApplicantsResponse;
 import kr.givemeticket.api.global.log.BusinessLogging;
 import kr.givemeticket.api.global.auth.annotation.LoginUserId;
 import lombok.RequiredArgsConstructor;
@@ -58,5 +60,27 @@ public class ApplicationController implements ApplicationApiSpec {
                 applicationService.getApplication(applicationId, userId));
 
         return ResponseEntity.ok(getApplicationResponse);
+    }
+
+    @Override
+    @GetMapping("campaigns/{campaignId}/applications")
+    public ResponseEntity<GetCampaignApplicantsResponse> readCampaignApplicants(
+            @LoginUserId Long userId,
+            @PathVariable("campaignId") Long campaignId
+    ) {
+        return ResponseEntity.ok(GetCampaignApplicantsResponse.of(
+                campaignId, applicationService.getApplicants(campaignId, userId)));
+    }
+
+    @Override
+    @BusinessLogging("주최자 신청 취소")
+    @PostMapping("campaigns/{campaignId}/applications/{applicationId}/cancel")
+    public ResponseEntity<CancelApplicantResponse> cancelApplicantByOwner(
+            @LoginUserId Long userId,
+            @PathVariable("campaignId") Long campaignId,
+            @PathVariable("applicationId") Long applicationId
+    ) {
+        return ResponseEntity.ok(CancelApplicantResponse.from(
+                applicationService.cancelByOwner(campaignId, applicationId, userId)));
     }
 }
