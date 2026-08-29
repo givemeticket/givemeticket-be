@@ -51,7 +51,7 @@ class ApplicationPersisterPersistTest {
     @Test
     @DisplayName("취소됐던 행은 새로 만들지 않고 되살린다")
     void revivesCancelledRow() {
-        Application cancelled = Application.confirmed(42L, 1L, 7L);
+        Application cancelled = Application.confirmed(42L, 1L, 7L, NOW.minusDays(1));
         set(cancelled, "status", ApplicationStatus.CANCELLED);
         set(cancelled, "failureReason", FailureReason.CAMPAIGN_DELETED);
         repository.put(cancelled);

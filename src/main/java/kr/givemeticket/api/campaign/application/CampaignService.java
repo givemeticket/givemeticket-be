@@ -47,8 +47,12 @@ public class CampaignService {
 
     /**
      * 취소됐어도 "나의 티켓"에 남겨야 하는 사유. 사용자가 직접 누르지 않은 취소만 여기 들어간다.
+     *
+     * <p>탈퇴(USER_WITHDRAWN)는 빠져 있다. 목록을 볼 사람이 이미 없다.
      */
-    private static final Set<FailureReason> LISTED_CANCELLATIONS = Set.of(FailureReason.CAMPAIGN_DELETED);
+    private static final Set<FailureReason> LISTED_CANCELLATIONS = Set.of(
+            FailureReason.CAMPAIGN_DELETED,
+            FailureReason.CANCELLED_BY_OWNER);
 
     private final CampaignRepository campaignRepository;
     private final CampaignPersister campaignPersister;

@@ -41,7 +41,11 @@ public interface SpringDataJpaApplicationRepository extends JpaRepository<Applic
 
     long countByCampaignIdAndStatusIn(Long campaignId, Collection<ApplicationStatus> statuses);
 
-    List<Application> findAllByCampaignIdAndStatusIn(
+    /**
+     * appliedAt 이 비어 있는 행(컬럼이 생기기 전에 저장된 것)은 MySQL 이 맨 앞에 놓는다.
+     * 어차피 가장 오래된 신청이므로 선착순 순서와 어긋나지 않는다.
+     */
+    List<Application> findAllByCampaignIdAndStatusInOrderByAppliedAtAsc(
             Long campaignId, Collection<ApplicationStatus> statuses);
 
     /*

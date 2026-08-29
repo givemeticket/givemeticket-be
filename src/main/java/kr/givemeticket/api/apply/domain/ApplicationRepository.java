@@ -39,6 +39,12 @@ public interface ApplicationRepository {
 
     long countByCampaignIdAndStatusIn(Long campaignId, Collection<ApplicationStatus> statuses);
 
+    /**
+     * 한 캠페인의 신청을 신청 시각 오름차순으로 가져온다. 순서가 곧 선착순이라
+     * 주최자의 신청자 목록이 이 순서를 그대로 쓴다.
+     *
+     * <p>행 수는 정원으로 상한이 잡혀 페이징을 두지 않았다.
+     */
     List<Application> findAllByCampaignIdAndStatusIn(
             Long campaignId, Collection<ApplicationStatus> statuses);
 
