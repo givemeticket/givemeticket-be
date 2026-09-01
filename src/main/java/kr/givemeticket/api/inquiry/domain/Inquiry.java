@@ -2,7 +2,6 @@ package kr.givemeticket.api.inquiry.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import kr.givemeticket.api.global.domain.BaseEntity;
 import lombok.AccessLevel;
@@ -29,11 +28,10 @@ public class Inquiry extends BaseEntity {
     private String title;
 
     /**
-     * 본문. 길이 상한은 검증에서 막지만, 컬럼은 TEXT 로 잡아 상한을 나중에 올려도
-     * 스키마를 건드리지 않게 한다.
+     * 본문. 길이를 명시한다. {@code @Lob} 을 쓰면 Hibernate 6 이 길이를 모른 채
+     * {@code tinytext}(255 <b>바이트</b>) 로 만들어 버려서, 한글 85자쯤에서 저장이 깨진다.
      */
-    @Lob
-    @Column(name = "content", nullable = false)
+    @Column(name = "content", nullable = false, length = CONTENT_MAX_LENGTH)
     private String content;
 
     /** 답을 보낼 곳. 답을 받지 않겠다면 비워둘 수 있다. */

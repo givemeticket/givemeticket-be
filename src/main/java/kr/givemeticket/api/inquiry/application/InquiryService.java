@@ -50,7 +50,9 @@ public class InquiryService {
         Inquiry inquiry = findInquiry(inquiryId);
         inquiry.update(request.title(), request.content(), request.email());
 
-        return InquiryResponse.from(inquiry);
+        // 여기서 저장을 강제하지 않으면 updatedAt 이 한 박자 늦는다. @LastModifiedDate 는
+        // flush 때 찍히는데, 커밋은 응답을 다 만든 뒤에 일어나기 때문이다.
+        return InquiryResponse.from(inquiryRepository.save(inquiry));
     }
 
     @Transactional

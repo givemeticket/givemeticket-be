@@ -13,9 +13,13 @@ public class JpaInquiryRepository implements InquiryRepository {
 
     private final SpringDataJpaInquiryRepository springDataJpaInquiryRepository;
 
+    /**
+     * 곧바로 flush 한다. 감사 컬럼(createdAt·updatedAt)은 flush 때 채워지는데,
+     * 응답을 만드는 시점은 커밋보다 앞이라 flush 하지 않으면 옛 값이 나간다.
+     */
     @Override
     public Inquiry save(Inquiry inquiry) {
-        return springDataJpaInquiryRepository.save(inquiry);
+        return springDataJpaInquiryRepository.saveAndFlush(inquiry);
     }
 
     @Override
