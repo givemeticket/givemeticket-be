@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
+import kr.givemeticket.api.apply.application.dto.response.ApplicationResponse;
 import kr.givemeticket.api.apply.domain.Application;
 import kr.givemeticket.api.apply.domain.ApplicationStatus;
 import kr.givemeticket.api.apply.domain.FailureReason;
@@ -61,6 +62,20 @@ class ApplicationPersisterPersistTest {
         assertThat(repository.created).isEmpty();
         assertThat(cancelled.getStatus()).isEqualTo(ApplicationStatus.CONFIRMED);
         assertThat(cancelled.getFailureReason()).isNull();
+    }
+
+    @Test
+    @DisplayName("다시 신청하면 신청 시각이 다시 신청한 시각으로 갱신된다")
+    void updatesAppliedAtOnReapply() {
+        Application cancelled = Application.confirmed(42L, 1L, 7L, NOW.minusDays(1));
+        set(cancelled, "status", ApplicationStatus.CANCELLED);
+        repository.put(cancelled);
+
+        persister.persist(ReservationEvent.first(42L, 1L, 7L, NOW));
+
+        assertThat(cancelled.appliedAt()).isEqualTo(NOW);
+        // 행이 만들어진 시각을 내보내면 처음 신청한 시각에 머문다. 조회가 보는 값까지 못 박는다.
+        assertThat(ApplicationResponse.from(cancelled).appliedAt()).isEqualTo(NOW);
     }
 
     private static void set(Object target, String field, Object value) {

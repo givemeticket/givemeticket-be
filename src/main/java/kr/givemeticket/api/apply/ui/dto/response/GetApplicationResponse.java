@@ -8,7 +8,8 @@ import kr.givemeticket.api.global.time.Utc;
 
 /**
  * @param failureReason 사용자가 직접 누르지 않은 취소의 사유. 본인이 취소했으면 null
- * @param createdAt     UTC. 프론트가 로컬 시각으로 그릴 수 있도록 Z를 붙여 내려간다
+ * @param appliedAt     자리를 잡은 시각. UTC 라 Z 가 붙어 내려간다. 취소 후 다시 신청했다면
+ *                      다시 신청한 시각이다. 저장이 아직 끝나지 않았으면 null
  */
 public record GetApplicationResponse(
         Long id,
@@ -16,7 +17,7 @@ public record GetApplicationResponse(
         Long userId,
         ApplicationStatus status,
         FailureReason failureReason,
-        Instant createdAt
+        Instant appliedAt
 ) {
 
     public static GetApplicationResponse from(ApplicationResponse response) {
@@ -26,7 +27,7 @@ public record GetApplicationResponse(
                 response.userId(),
                 response.status(),
                 response.failureReason(),
-                Utc.toInstant(response.createdAt())
+                Utc.toInstant(response.appliedAt())
         );
     }
 }

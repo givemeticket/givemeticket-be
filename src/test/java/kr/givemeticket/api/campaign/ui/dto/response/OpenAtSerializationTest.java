@@ -61,7 +61,7 @@ class OpenAtSerializationTest {
         GetApplicationResponse response = GetApplicationResponse.from(new ApplicationResponse(
                 1L, 1L, 1L, ApplicationStatus.CONFIRMED, null, null));
 
-        assertThat(response.createdAt()).isNull();
+        assertThat(response.appliedAt()).isNull();
     }
 
     @Test
