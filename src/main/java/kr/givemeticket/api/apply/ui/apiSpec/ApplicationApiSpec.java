@@ -46,6 +46,9 @@ public interface ApplicationApiSpec {
             description = """
                     본인의 신청 내역만 조회할 수 있습니다.
 
+                    - appliedAt 은 자리를 잡은 시각입니다. 취소했다가 다시 신청했다면
+                      다시 신청한 시각으로 갱신됩니다. 주최자의 신청자 목록과 같은 값입니다
+                    - 방금 신청해 저장이 끝나기 전이면 appliedAt 이 null 로 내려갑니다
                     - failureReason 은 내가 누른 취소가 아닐 때만 채워집니다.
                       CAMPAIGN_DELETED(주최자가 행사 삭제) / USER_WITHDRAWN(본인 탈퇴) /
                       CANCELLED_BY_OWNER(주최자가 내 신청만 취소)
