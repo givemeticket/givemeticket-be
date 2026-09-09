@@ -214,6 +214,34 @@ class CampaignQueryTest {
         assertThat(campaignService.getParticipatedCampaigns(USER_ID)).isEmpty();
     }
 
+    /**
+     * 행사는 살아 있고 재신청도 막지 않는다. 취소 카드로 남겨 두면 다시 신청할 수 있는 행사가
+     * 끝난 것처럼 보인다.
+     */
+    @Test
+    @DisplayName("참여 목록에서 주최자가 내 신청만 취소한 행사도 빠진다")
+    void participatedDropsOwnerCancelled() {
+        givenOwner("민기", null);
+        Campaign campaign = givenCampaign(1L, "내보내진 행사", CampaignStatus.OPEN, 100, 38L);
+        givenApplication(
+                campaign.getId(), ApplicationStatus.CANCELLED, FailureReason.CANCELLED_BY_OWNER);
+
+        assertThat(campaignService.getParticipatedCampaigns(USER_ID)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("내보내진 뒤 다시 신청하면 참여 목록에 돌아온다")
+    void participatedReturnsAfterReapply() {
+        givenOwner("민기", null);
+        Campaign campaign = givenCampaign(1L, "다시 신청한 행사", CampaignStatus.OPEN, 100, 37L);
+        // 재신청은 같은 행을 되쓴다. 사유가 비워지고 상태가 CONFIRMED 로 돌아간다.
+        givenApplication(campaign.getId(), ApplicationStatus.CONFIRMED, null);
+
+        assertThat(campaignService.getParticipatedCampaigns(USER_ID)).singleElement()
+                .extracting(summary -> summary.campaign().title())
+                .isEqualTo("다시 신청한 행사");
+    }
+
     @Test
     @DisplayName("종료된 행사는 신청이 그대로라 참여 목록에 남는다")
     void participatedKeepsClosedCampaigns() {
