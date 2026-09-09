@@ -69,11 +69,14 @@ public interface CampaignApiSpec {
                     - 카드마다 재고를 따로 부르지 않도록 remainingStock/soldOut 이 함께 내려갑니다.
                       삭제된 행사이거나 재고를 읽지 못하면 두 값이 null 입니다
                     - 삭제한 행사도 status=DELETED 로 남습니다. 목록에서 지우지 않고 "삭제됨"으로
-                      보여주면 됩니다. participated 도 마찬가지로, 주최자가 지운 행사와
-                      주최자가 내 신청만 취소한 행사는 myApplicationStatus=CANCELLED 인 채로
-                      남습니다. 다만 내가 직접 취소한 행사는 빠집니다 — 사라진 이유를 이미
-                      알고 있으니까요. 왜 취소됐는지는 GET /applications/{applicationId} 의
-                      failureReason 으로 구분하세요
+                      보여주면 됩니다. participated 도 마찬가지로, 주최자가 지운 행사는
+                      myApplicationStatus=CANCELLED 인 채로 남습니다 — 다시 신청할 수단이
+                      없으니 여기서라도 무슨 일이 있었는지 보여야 합니다
+                    - 반대로 신청이 살아 있지 않고 행사는 멀쩡한 경우는 빠집니다. 내가 직접
+                      취소한 행사와, 주최자가 내 신청만 취소한 행사(CANCELLED_BY_OWNER)입니다.
+                      둘 다 링크로 들어가 다시 신청할 수 있어서, 목록에 취소 카드로 남기면
+                      끝난 행사처럼 보입니다. 왜 취소됐는지는 GET /applications/{applicationId} 의
+                      failureReason 으로 확인하세요
                     - participated 는 최근 신청이 위로 오도록 myAppliedAt 내림차순으로 내려갑니다.
                       취소했다가 다시 신청하면 myAppliedAt 이 재신청 시각으로 갱신되어 맨 위로
                       올라옵니다. owned 에서는 myApplicationStatus/myAppliedAt 이 null 입니다
