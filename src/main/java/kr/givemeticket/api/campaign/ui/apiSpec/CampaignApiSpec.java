@@ -74,6 +74,9 @@ public interface CampaignApiSpec {
                       남습니다. 다만 내가 직접 취소한 행사는 빠집니다 — 사라진 이유를 이미
                       알고 있으니까요. 왜 취소됐는지는 GET /applications/{applicationId} 의
                       failureReason 으로 구분하세요
+                    - participated 는 최근 신청이 위로 오도록 myAppliedAt 내림차순으로 내려갑니다.
+                      취소했다가 다시 신청하면 myAppliedAt 이 재신청 시각으로 갱신되어 맨 위로
+                      올라옵니다. owned 에서는 myApplicationStatus/myAppliedAt 이 null 입니다
                     """)
     ResponseEntity<GetCampaignsResponse> readCampaigns(
             @Parameter(hidden = true) @LoginUserId Long userId,
@@ -91,7 +94,10 @@ public interface CampaignApiSpec {
 
                     아직 오픈 전(status=SCHEDULED)이면
                     - openAt 은 미래 시각이기만 하면 앞당기든 미루든 자유입니다
-                    - totalStock 도 자유롭습니다. 신청자가 없으므로 줄여도 됩니다
+                    - totalStock 은 줄일 수도 있지만, 이미 신청한 인원이 하한입니다. 그보다 적게
+                      줄이려 하면 409 `TOTAL_STOCK_BELOW_APPLICANTS`. 한 번도 열린 적 없는 행사는
+                      신청자가 없으므로 사실상 제한이 없고, 오픈을 미뤄 SCHEDULED 로 돌아온
+                      행사에서만 걸립니다
 
                     이미 오픈된 뒤(status=OPEN)라면
                     - openAt 은 지금 설정된 시각보다 뒤로만 옮길 수 있습니다. 미루면 접수가 멈추고

@@ -72,11 +72,20 @@ public class CampaignApplicationException extends BusinessException {
     }
 
     /**
-     * 이미 열린 행사에만 걸린다. 오픈 전 행사는 정원을 줄일 수도 있다.
+     * 이미 열린 행사에만 걸린다. 오픈 전으로 돌아간 행사는 신청 인원까지는 줄일 수 있다.
      */
     public static CampaignApplicationException totalStockNotIncreasable() {
         return new CampaignApplicationException(HttpStatus.CONFLICT, "TOTAL_STOCK_NOT_INCREASABLE",
                 "이미 오픈된 행사의 정원은 늘리는 것만 가능합니다.");
+    }
+
+    /**
+     * 오픈을 미뤄 SCHEDULED 로 돌아간 행사에도 신청자는 남아 있다. 그 인원보다 정원을 낮추면
+     * 이미 자리를 받은 사람을 내보낼 방법이 없어 재고가 음수가 된다.
+     */
+    public static CampaignApplicationException totalStockBelowApplicants(long applicantCount) {
+        return new CampaignApplicationException(HttpStatus.CONFLICT, "TOTAL_STOCK_BELOW_APPLICANTS",
+                "이미 신청한 인원(" + applicantCount + "명)보다 적게 정원을 줄일 수 없습니다.");
     }
 
     public static CampaignApplicationException shortCodeGenerationFailed() {

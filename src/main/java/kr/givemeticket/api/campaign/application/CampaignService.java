@@ -1,10 +1,13 @@
 package kr.givemeticket.api.campaign.application;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import kr.givemeticket.api.apply.application.ApplicationService;
 import kr.givemeticket.api.apply.domain.Application;
@@ -149,21 +152,40 @@ public class CampaignService {
      */
     @Transactional(readOnly = true)
     public List<CampaignSummaryResponse> getParticipatedCampaigns(Long userId) {
-        Map<Long, ApplicationStatus> statusByCampaign = applicationRepository
+        // 최근 신청이 앞이다. 캠페인 조회는 id 순으로 돌아오므로 순서는 이 목록이 쥐고 있어야 한다.
+        Map<Long, Application> mineByCampaign = applicationRepository
                 .findAllByUserIdAndStatusInOrFailureReasonIn(
                         userId, ApplicationStatus.active(), LISTED_CANCELLATIONS).stream()
-                .collect(Collectors.toMap(Application::getCampaignId, Application::getStatus));
+                .collect(Collectors.toMap(
+                        Application::getCampaignId,
+                        Function.identity(),
+                        (first, second) -> first,
+                        LinkedHashMap::new));
 
-        return toSummaries(campaignRepository.findAllByIdIn(statusByCampaign.keySet()), statusByCampaign);
+        Map<Long, Campaign> campaignById = campaignRepository.findAllByIdIn(mineByCampaign.keySet())
+                .stream()
+                .collect(Collectors.toMap(Campaign::getId, Function.identity()));
+
+        List<Campaign> campaigns = mineByCampaign.keySet().stream()
+                .map(campaignById::get)
+                // 신청은 남았는데 캠페인 행이 사라진 경우. 그릴 것이 없으므로 건너뛴다.
+                .filter(Objects::nonNull)
+                .toList();
+
+        return toSummaries(campaigns, mineByCampaign);
     }
 
     /**
      * 개설자와 재고는 캠페인마다 조회하지 않고 한 번씩 모아 온다. 카드가 30장이어도
      * 유저 조회 1번, Redis 왕복 1번이다.
+     *
+     * <p>받은 캠페인 순서를 그대로 유지한다. 정렬은 부르는 쪽이 정한다.
+     *
+     * @param mineByCampaign 캠페인별 내 신청. 내가 만든 행사 목록에서는 비어 있다
      */
     private List<CampaignSummaryResponse> toSummaries(
             List<Campaign> campaigns,
-            Map<Long, ApplicationStatus> statusByCampaign
+            Map<Long, Application> mineByCampaign
     ) {
         Map<Long, UserResponse> ownerById = userService.findUsers(
                 campaigns.stream().map(Campaign::getOwnerId).collect(Collectors.toSet()));
@@ -176,7 +198,7 @@ public class CampaignService {
                         CampaignOwnerInfo.of(
                                 campaign.getOwnerId(), ownerById.get(campaign.getOwnerId())),
                         remainingByCampaign.get(campaign.getId()),
-                        statusByCampaign.get(campaign.getId())))
+                        mineByCampaign.get(campaign.getId())))
                 .toList();
     }
 
@@ -299,7 +321,9 @@ public class CampaignService {
     /**
      * 열린 행사는 늘리는 것만 된다. 이미 나간 자리를 줄일 방법이 없다.
      *
-     * <p>열리기 전이면 줄여도 된다. 아무도 신청하지 않았으므로 Redis 재고는 정원 그대로다.
+     * <p>열리기 전이면 줄일 수 있지만, 신청 인원까지가 하한이다. 한 번 열렸다가 오픈이 미뤄진
+     * 행사는 상태가 SCHEDULED 로 돌아와도 신청자가 그대로 남아 있어, 상태만 보고 통과시키면
+     * 이미 자리를 받은 사람보다 정원이 적어진다.
      */
     private void changeTotalStock(Campaign campaign, int totalStock, boolean opened) {
         if (opened && totalStock < campaign.getTotalStock()) {
@@ -307,6 +331,9 @@ public class CampaignService {
         }
 
         Long campaignId = campaign.getId();
+        if (totalStock < campaign.getTotalStock()) {
+            rejectIfBelowApplicants(campaignId, totalStock);
+        }
         int delta = campaign.changeTotalStock(totalStock);
         stockRepository.increaseBy(campaignId, delta);
 
@@ -315,6 +342,21 @@ public class CampaignService {
 
         log.info("campaign stock changed: campaignId={}, delta={}, totalStock={}",
                 campaignId, delta, totalStock);
+    }
+
+    /**
+     * 아직 자리를 잡고 있는 신청 수보다 적은 정원은 받지 않는다. 통과시키면 Redis 잔여 재고가
+     * 음수로 내려가고, 확정된 신청 수와 정원이 어긋난 채로 남는다.
+     *
+     * <p>줄이는 요청에서만 센다. 늘리는 쪽은 하한을 넘길 수 없어 셀 이유가 없다.
+     */
+    private void rejectIfBelowApplicants(Long campaignId, int totalStock) {
+        long applicantCount = applicationRepository
+                .countByCampaignIdAndStatusIn(campaignId, CONFIRMED_ONLY);
+
+        if (totalStock < applicantCount) {
+            throw CampaignApplicationException.totalStockBelowApplicants(applicantCount);
+        }
     }
 
     /**

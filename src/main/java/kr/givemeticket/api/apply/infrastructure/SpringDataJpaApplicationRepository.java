@@ -22,6 +22,10 @@ public interface SpringDataJpaApplicationRepository extends JpaRepository<Applic
     /**
      * 취소 사유는 CANCELLED 인 건에만 의미가 있으므로 상태까지 함께 못 박는다.
      * 사유만 보고 걸면 나중에 같은 사유를 FAILED 쪽에서 쓰기 시작할 때 조용히 딸려 온다.
+     *
+     * <p>정렬 기준은 id 가 아니라 신청 시각이다. 취소했다가 다시 신청하면 같은 행을 되쓰므로
+     * id 는 <b>처음</b> 신청한 순서에 묶여 있고, 방금 다시 신청한 건이 목록 아래로 내려간다.
+     * appliedAt 이 비어 있는 옛 행은 생성 시각으로 대신한다({@code Application#appliedAt()} 과 같다).
      */
     @Query("""
             SELECT a FROM Application a
@@ -29,7 +33,7 @@ public interface SpringDataJpaApplicationRepository extends JpaRepository<Applic
                AND (a.status IN :statuses
                     OR (a.status = kr.givemeticket.api.apply.domain.ApplicationStatus.CANCELLED
                         AND a.failureReason IN :failureReasons))
-             ORDER BY a.id DESC
+             ORDER BY COALESCE(a.appliedAt, a.createdAt) DESC, a.id DESC
             """)
     List<Application> findAllByUserIdAndStatusInOrFailureReasonIn(
             @Param("userId") Long userId,
