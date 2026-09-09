@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDateTime;
+import kr.givemeticket.api.apply.domain.Application;
+import kr.givemeticket.api.apply.domain.ApplicationStatus;
 import kr.givemeticket.api.campaign.application.dto.request.CampaignUpdateRequest;
 import kr.givemeticket.api.campaign.domain.Campaign;
 import kr.givemeticket.api.campaign.domain.CampaignState;
@@ -17,7 +19,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /**
- * 수정 제한은 이미 오픈된 행사에만 걸린다. 오픈 전 행사는 신청자가 없으니 자유롭게 고칠 수 있다.
+ * 수정 제한은 이미 오픈된 행사에만 걸린다. 오픈 전 행사는 대체로 자유롭지만,
+ * 정원은 이미 신청한 인원 아래로 내려갈 수 없다 — 오픈을 미룬 행사에는 신청자가 남아 있다.
  */
 class CampaignUpdateTest {
 
@@ -29,11 +32,12 @@ class CampaignUpdateTest {
     private final FakeCampaignRepository campaignRepository = new FakeCampaignRepository();
     private final FakeStockRepository stockRepository = new FakeStockRepository();
     private final FakeCampaignStateRepository stateRepository = new FakeCampaignStateRepository();
+    private final FakeApplicationRepository applicationRepository = new FakeApplicationRepository();
 
     private final CampaignCacheRepository noOpCache = new NoOpCampaignCacheRepository();
 
     private final CampaignService campaignService = new CampaignService(
-            campaignRepository, null, null, null, stockRepository, stateRepository,
+            campaignRepository, null, applicationRepository, null, stockRepository, stateRepository,
             noOpCache, new CampaignCacheEvictor(noOpCache), null, null);
 
     @Nested
@@ -162,6 +166,67 @@ class CampaignUpdateTest {
         }
     }
 
+    /**
+     * 오픈을 미루면 상태가 SCHEDULED 로 돌아간다. 상태만 보면 "신청자가 없는 행사"와 구분되지 않아
+     * 정원을 신청 인원 아래로 내릴 수 있었다.
+     */
+    @Nested
+    @DisplayName("오픈을 미뤄 오픈 전으로 돌아간 행사는")
+    class Delayed {
+
+        @Test
+        @DisplayName("신청 인원보다 적게 정원을 줄이면 409다")
+        void rejectsTotalStockBelowApplicants() {
+            given(CampaignStatus.SCHEDULED, 100);
+            stockRepository.stock.put(CAMPAIGN_ID, 97L);
+            givenApplicants(3);
+
+            assertThatThrownBy(() -> campaignService.updateCampaign(CAMPAIGN_ID, OWNER_ID,
+                    request(null, 2)))
+                    .isInstanceOf(CampaignApplicationException.class)
+                    .hasMessageContaining("3명");
+        }
+
+        @Test
+        @DisplayName("신청 인원까지는 줄일 수 있고 잔여 재고는 0이 된다")
+        void allowsShrinkDownToApplicants() {
+            Campaign campaign = given(CampaignStatus.SCHEDULED, 100);
+            stockRepository.stock.put(CAMPAIGN_ID, 97L);
+            givenApplicants(3);
+
+            campaignService.updateCampaign(CAMPAIGN_ID, OWNER_ID, request(null, 3));
+
+            assertThat(campaign.getTotalStock()).isEqualTo(3);
+            assertThat(stockRepository.stock).containsEntry(CAMPAIGN_ID, 0L);
+        }
+
+        @Test
+        @DisplayName("취소된 신청은 자리를 비웠으므로 하한에 넣지 않는다")
+        void ignoresCancelledApplications() {
+            Campaign campaign = given(CampaignStatus.SCHEDULED, 100);
+            stockRepository.stock.put(CAMPAIGN_ID, 99L);
+            givenApplicants(1);
+            givenCancelledApplicant();
+
+            campaignService.updateCampaign(CAMPAIGN_ID, OWNER_ID, request(null, 1));
+
+            assertThat(campaign.getTotalStock()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("증원은 신청 인원과 무관하게 통과한다")
+        void allowsIncrease() {
+            Campaign campaign = given(CampaignStatus.SCHEDULED, 100);
+            stockRepository.stock.put(CAMPAIGN_ID, 97L);
+            givenApplicants(3);
+
+            campaignService.updateCampaign(CAMPAIGN_ID, OWNER_ID, request(null, 120));
+
+            assertThat(campaign.getTotalStock()).isEqualTo(120);
+            assertThat(stockRepository.stock).containsEntry(CAMPAIGN_ID, 117L);
+        }
+    }
+
     @Nested
     @DisplayName("제목은")
     class Title {
@@ -213,6 +278,21 @@ class CampaignUpdateTest {
 
         campaignRepository.put(CAMPAIGN_ID, campaign);
         return campaign;
+    }
+
+    private void givenApplicants(int count) {
+        for (int i = 0; i < count; i++) {
+            applicationRepository.put(Application.confirmed(
+                    (long) i + 1, CAMPAIGN_ID, (long) i + 100, LocalDateTime.now()));
+        }
+    }
+
+    private void givenCancelledApplicant() {
+        Application cancelled = Application.confirmed(
+                999L, CAMPAIGN_ID, 999L, LocalDateTime.now());
+        TestEntities.with(cancelled, "status", ApplicationStatus.CANCELLED);
+
+        applicationRepository.put(cancelled);
     }
 
     private static CampaignUpdateRequest request(LocalDateTime openAt, Integer totalStock) {

@@ -1,10 +1,15 @@
 package kr.givemeticket.api.login.domain;
 
+import kr.givemeticket.api.global.web.HttpsUrl;
+
 /**
  * 소셜 인증으로 확인된 신원. 아직 우리 서비스의 유저는 아니다.
  *
  * <p>닉네임은 두 제공자 모두 선택 동의 항목이라 비어 올 수 있다.
  * 로그인을 막는 대신 여기서 대체값을 채워, 이후 계층은 닉네임이 항상 있다고 믿어도 된다.
+ *
+ * <p>프로필 이미지는 https 로 올려서 저장한다. 카카오 기본 프로필이 http 로 오는데,
+ * 그대로 두면 https 페이지에서 Mixed Content 경고가 된다.
  */
 public record ProviderPrincipal(
         String providerId,
@@ -19,6 +24,7 @@ public record ProviderPrincipal(
         if (nickname == null || nickname.isBlank()) {
             nickname = defaultNickname(provider, providerId);
         }
+        profileImageUrl = HttpsUrl.upgrade(profileImageUrl);
     }
 
     /**

@@ -157,6 +157,54 @@ class CampaignQueryTest {
     }
 
     @Test
+    @DisplayName("참여 목록은 최근 신청이 먼저 오도록 신청 시각 내림차순이다")
+    void participatedIsOrderedByAppliedAt() {
+        givenOwner("민기", null);
+        givenCampaign(1L, "첫째로 신청한 행사", CampaignStatus.OPEN, 100, 37L);
+        givenCampaign(2L, "둘째로 신청한 행사", CampaignStatus.OPEN, 100, 37L);
+        givenCampaign(3L, "셋째로 신청한 행사", CampaignStatus.OPEN, 100, 37L);
+        LocalDateTime now = LocalDateTime.now();
+        givenApplication(11L, 1L, ApplicationStatus.CONFIRMED, null, now.minusDays(3));
+        givenApplication(12L, 2L, ApplicationStatus.CONFIRMED, null, now.minusDays(2));
+        givenApplication(13L, 3L, ApplicationStatus.CONFIRMED, null, now.minusDays(1));
+
+        List<CampaignSummaryResponse> campaigns = campaignService.getParticipatedCampaigns(USER_ID);
+
+        assertThat(campaigns).extracting(summary -> summary.campaign().title())
+                .containsExactly("셋째로 신청한 행사", "둘째로 신청한 행사", "첫째로 신청한 행사");
+    }
+
+    @Test
+    @DisplayName("취소했다가 다시 신청한 행사는 신청 번호가 그대로여도 맨 위로 온다")
+    void reappliedCampaignComesFirst() {
+        givenOwner("민기", null);
+        givenCampaign(1L, "다시 신청한 행사", CampaignStatus.OPEN, 100, 37L);
+        givenCampaign(2L, "그 뒤에 신청한 행사", CampaignStatus.OPEN, 100, 37L);
+        LocalDateTime now = LocalDateTime.now();
+        // 신청 번호는 처음 신청한 순서에 묶여 있고, 재신청은 신청 시각만 갱신한다.
+        givenApplication(11L, 1L, ApplicationStatus.CONFIRMED, null, now.minusMinutes(1));
+        givenApplication(12L, 2L, ApplicationStatus.CONFIRMED, null, now.minusDays(1));
+
+        List<CampaignSummaryResponse> campaigns = campaignService.getParticipatedCampaigns(USER_ID);
+
+        assertThat(campaigns).extracting(summary -> summary.campaign().title())
+                .containsExactly("다시 신청한 행사", "그 뒤에 신청한 행사");
+        assertThat(campaigns.getFirst().myAppliedAt()).isEqualTo(now.minusMinutes(1));
+    }
+
+    @Test
+    @DisplayName("내가 만든 행사 목록에는 신청 정보가 비어 있다")
+    void ownedHasNoApplicationInfo() {
+        givenOwner("민기", null);
+        givenCampaign(1L, "행사A", CampaignStatus.OPEN, 100, 37L);
+
+        List<CampaignSummaryResponse> campaigns = campaignService.getOwnedCampaigns(OWNER_ID);
+
+        assertThat(campaigns.getFirst().myApplicationStatus()).isNull();
+        assertThat(campaigns.getFirst().myAppliedAt()).isNull();
+    }
+
+    @Test
     @DisplayName("참여 목록에서 내가 직접 취소한 행사는 빠진다")
     void participatedDropsSelfCancelled() {
         givenOwner("민기", null);
@@ -182,9 +230,22 @@ class CampaignQueryTest {
 
     private void givenApplication(
             Long campaignId, ApplicationStatus status, FailureReason failureReason) {
+        givenApplication(campaignId, campaignId, status, failureReason, LocalDateTime.now());
+    }
+
+    /**
+     * @param applicationId 신청 번호. 취소 후 재신청은 같은 행을 되쓰므로 번호와 신청 시각이
+     *                      따로 논다. 그 상황을 만들 수 있도록 신청 시각과 따로 받는다
+     */
+    private void givenApplication(
+            Long applicationId,
+            Long campaignId,
+            ApplicationStatus status,
+            FailureReason failureReason,
+            LocalDateTime appliedAt) {
         // id 는 이제 채번된 값을 생성자로 받는다. 리플렉션으로 심을 필요가 없다.
         Application application = Application.confirmed(
-                campaignId, campaignId, USER_ID, LocalDateTime.now());
+                applicationId, campaignId, USER_ID, appliedAt);
         TestEntities.with(application, "status", status);
         TestEntities.with(application, "failureReason", failureReason);
 

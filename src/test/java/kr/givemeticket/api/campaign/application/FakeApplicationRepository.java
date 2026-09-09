@@ -2,6 +2,7 @@ package kr.givemeticket.api.campaign.application;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import kr.givemeticket.api.apply.domain.Application;
@@ -30,6 +31,7 @@ class FakeApplicationRepository implements ApplicationRepository {
                 .toList();
     }
 
+    /** 실제 쿼리와 같이 신청 시각 내림차순으로 돌려준다. 목록의 정렬이 여기에 걸려 있다. */
     @Override
     public List<Application> findAllByUserIdAndStatusInOrFailureReasonIn(
             Long userId,
@@ -42,6 +44,7 @@ class FakeApplicationRepository implements ApplicationRepository {
                         || (application.getStatus() == ApplicationStatus.CANCELLED
                             && application.getFailureReason() != null
                             && failureReasons.contains(application.getFailureReason())))
+                .sorted(Comparator.comparing(Application::appliedAt).reversed())
                 .toList();
     }
 
@@ -68,7 +71,10 @@ class FakeApplicationRepository implements ApplicationRepository {
     @Override
     public long countByCampaignIdAndStatusIn(
             Long campaignId, Collection<ApplicationStatus> statuses) {
-        throw new UnsupportedOperationException();
+        return applications.stream()
+                .filter(application -> application.getCampaignId().equals(campaignId))
+                .filter(application -> statuses.contains(application.getStatus()))
+                .count();
     }
 
     @Override

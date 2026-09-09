@@ -1,5 +1,6 @@
 package kr.givemeticket.api.user.application.dto.response;
 
+import kr.givemeticket.api.global.web.HttpsUrl;
 import kr.givemeticket.api.user.domain.User;
 
 /**
@@ -18,7 +19,8 @@ public record UserResponse(
         return new UserResponse(
                 user.getId(),
                 user.getNickname(),
-                user.getProfileImageUrl(),
+                // 이 수정 전에 가입해 http 로 저장된 행이 남아 있어, 내보낼 때 한 번 더 올린다.
+                HttpsUrl.upgrade(user.getProfileImageUrl()),
                 user.isWithdrawn());
     }
 }

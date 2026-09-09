@@ -21,6 +21,8 @@ public record GetCampaignsResponse(List<CampaignItem> campaigns) {
      * @param soldOut             잔여 재고 0. remainingStock 이 null 이면 함께 null
      * @param status              삭제된 행사도 목록에 남으므로 DELETED 로 올 수 있다
      * @param myApplicationStatus scope=participated 일 때만 채워진다
+     * @param myAppliedAt         UTC. 내가 신청한 시각으로, 위와 같이 participated 전용이다.
+     *                            목록은 이 값의 내림차순으로 내려간다
      */
     public record CampaignItem(
             Long id,
@@ -35,7 +37,8 @@ public record GetCampaignsResponse(List<CampaignItem> campaigns) {
             Instant eventAt,
             String location,
             String imageUrl,
-            ApplicationStatus myApplicationStatus
+            ApplicationStatus myApplicationStatus,
+            Instant myAppliedAt
     ) {
 
         private static CampaignItem from(CampaignSummaryResponse summary) {
@@ -55,7 +58,8 @@ public record GetCampaignsResponse(List<CampaignItem> campaigns) {
                     (detail == null) ? null : Utc.toInstant(detail.eventAt()),
                     (detail == null) ? null : detail.location(),
                     (detail == null) ? null : detail.imageUrl(),
-                    summary.myApplicationStatus()
+                    summary.myApplicationStatus(),
+                    Utc.toInstant(summary.myAppliedAt())
             );
         }
     }
