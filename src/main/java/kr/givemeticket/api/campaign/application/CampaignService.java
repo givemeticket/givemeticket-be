@@ -49,13 +49,17 @@ public class CampaignService {
     private static final Set<ApplicationStatus> CONFIRMED_ONLY = Set.of(ApplicationStatus.CONFIRMED);
 
     /**
-     * 취소됐어도 "나의 티켓"에 남겨야 하는 사유. 사용자가 직접 누르지 않은 취소만 여기 들어간다.
+     * 취소됐어도 "나의 티켓"에 남겨야 하는 사유. 행사 자체가 사라져 다시 신청할 수단이
+     * 없는 경우만 남긴다.
      *
-     * <p>탈퇴(USER_WITHDRAWN)는 빠져 있다. 목록을 볼 사람이 이미 없다.
+     * <p>주최자가 내 신청만 취소한 경우(CANCELLED_BY_OWNER)는 빠져 있다. 행사는 그대로
+     * 살아 있고 재신청도 막지 않으므로, 취소된 카드가 목록에 남으면 다시 신청할 수 있는
+     * 행사가 끝난 것처럼 보인다. 링크로 들어가면 신청 버튼이 그대로 있다.
+     *
+     * <p>탈퇴(USER_WITHDRAWN)도 빠져 있다. 목록을 볼 사람이 이미 없다.
      */
     private static final Set<FailureReason> LISTED_CANCELLATIONS = Set.of(
-            FailureReason.CAMPAIGN_DELETED,
-            FailureReason.CANCELLED_BY_OWNER);
+            FailureReason.CAMPAIGN_DELETED);
 
     private final CampaignRepository campaignRepository;
     private final CampaignPersister campaignPersister;
@@ -148,7 +152,9 @@ public class CampaignService {
      * 행사는 status=DELETED 로, 신청은 CANCELLED 로 남아 "삭제된 행사"라고 그릴 수 있다.
      *
      * <p>반대로 내가 직접 취소한 건은 넣지 않는다. 사라진 이유를 이미 알고 있고,
-     * 취소한 행사가 목록에 계속 남아 있으면 그게 더 이상하다.
+     * 취소한 행사가 목록에 계속 남아 있으면 그게 더 이상하다. 주최자가 내 신청만 취소한
+     * 건도 같은 이유로 넣지 않는다 — 행사는 살아 있고 다시 신청할 수 있어서, 남겨 두면
+     * 끝난 티켓처럼 보인다.
      */
     @Transactional(readOnly = true)
     public List<CampaignSummaryResponse> getParticipatedCampaigns(Long userId) {
