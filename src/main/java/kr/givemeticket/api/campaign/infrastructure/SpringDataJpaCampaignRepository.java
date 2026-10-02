@@ -25,6 +25,15 @@ public interface SpringDataJpaCampaignRepository extends JpaRepository<Campaign,
 
     List<Campaign> findAllByStatusAndOpenAtLessThanEqual(CampaignStatus status, LocalDateTime now);
 
+    @Query("""
+            SELECT c FROM Campaign c
+             WHERE c.detail.eventAt > :from
+               AND c.detail.eventAt <= :to
+               AND c.status <> kr.givemeticket.api.campaign.domain.CampaignStatus.DELETED
+            """)
+    List<Campaign> findAllLiveByEventAtBetween(
+            @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
     /**
      * 삭제 표시. 이미 삭제된 캠페인이면 0행이 바뀌므로 동시에 두 번 눌러도 신청 취소는 한 번만 돈다.
      *

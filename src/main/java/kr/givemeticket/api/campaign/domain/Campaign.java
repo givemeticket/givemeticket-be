@@ -19,7 +19,9 @@ import org.hibernate.type.SqlTypes;
 @Entity
 @Table(name = "campaign", indexes = {
         @Index(name = "uk_campaign_short_code", columnList = "short_code", unique = true),
-        @Index(name = "idx_campaign_owner", columnList = "owner_id")
+        @Index(name = "idx_campaign_owner", columnList = "owner_id"),
+        // 임박 알림 스케줄러가 "곧 시작하는 행사"를 시작 일시 범위로 찾는다.
+        @Index(name = "idx_campaign_event_at", columnList = "detail_event_at")
 })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Campaign extends BaseEntity {

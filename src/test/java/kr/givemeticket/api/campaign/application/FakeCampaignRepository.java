@@ -68,6 +68,11 @@ class FakeCampaignRepository implements CampaignRepository {
     }
 
     @Override
+    public List<Campaign> findAllLiveByEventAtBetween(LocalDateTime from, LocalDateTime to) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public int markDeleted(Long campaignId) {
         throw new UnsupportedOperationException();
     }

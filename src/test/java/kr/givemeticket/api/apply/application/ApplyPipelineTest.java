@@ -54,7 +54,7 @@ class ApplyPipelineTest {
     private final ApplicationService service = new ApplicationService(
             applicationRepository,
             null,
-            new ApplicationPersister(applicationRepository),
+            new ApplicationPersister(applicationRepository, event -> { }),
             null,
             stateRepository,
             stockRepository,

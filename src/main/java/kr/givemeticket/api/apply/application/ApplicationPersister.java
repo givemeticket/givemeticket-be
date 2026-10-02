@@ -1,11 +1,13 @@
 package kr.givemeticket.api.apply.application;
 
 import kr.givemeticket.api.apply.domain.Application;
+import kr.givemeticket.api.apply.domain.ApplicationCancelledByOwnerEvent;
 import kr.givemeticket.api.apply.domain.ApplicationRepository;
 import kr.givemeticket.api.apply.domain.ReservationEvent;
 import kr.givemeticket.api.apply.domain.ApplicationStatus;
 import kr.givemeticket.api.apply.domain.FailureReason;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ApplicationPersister {
 
     private final ApplicationRepository applicationRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 큐에서 꺼낸 예매를 저장한다. 워커가 부르는 유일한 쓰기 경로다.
@@ -52,10 +55,17 @@ public class ApplicationPersister {
     /**
      * 주최자가 신청 하나를 취소한다. 확정된 건만 대상이며, 0행이면 그 사이 신청자가
      * 직접 취소한 것이므로 호출자는 재고를 건드리면 안 된다.
+     *
+     * <p>신청자는 자기가 누르지 않은 취소를 알 길이 없어서 이벤트를 낸다. 실제로 바뀐 경우에만 낸다.
      */
     @Transactional
-    public int cancelByOwner(Long applicationId) {
-        return applicationRepository.cancelWithReason(
-                applicationId, ApplicationStatus.active(), FailureReason.CANCELLED_BY_OWNER);
+    public int cancelByOwner(Application application) {
+        int updated = applicationRepository.cancelWithReason(
+                application.getId(), ApplicationStatus.active(), FailureReason.CANCELLED_BY_OWNER);
+        if (updated == 1) {
+            eventPublisher.publishEvent(new ApplicationCancelledByOwnerEvent(
+                    application.getId(), application.getCampaignId(), application.getUserId()));
+        }
+        return updated;
     }
 }

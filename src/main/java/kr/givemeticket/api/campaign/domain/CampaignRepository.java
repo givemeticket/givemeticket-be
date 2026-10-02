@@ -31,6 +31,11 @@ public interface CampaignRepository {
     List<Campaign> findAllByStatusAndOpenAtLessThanEqual(CampaignStatus status, LocalDateTime now);
 
     /**
+     * 행사 시작 일시가 (from, to] 에 드는, 삭제되지 않은 행사. 임박 알림 대상을 고른다.
+     */
+    List<Campaign> findAllLiveByEventAtBetween(LocalDateTime from, LocalDateTime to);
+
+    /**
      * @return 실제로 바뀐 행 수. 0이면 그 사이 다른 요청이 이미 삭제한 것이다
      */
     int markDeleted(Long campaignId);

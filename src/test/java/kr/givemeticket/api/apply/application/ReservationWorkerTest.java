@@ -43,7 +43,7 @@ class ReservationWorkerTest {
     @Test
     @DisplayName("저장에 성공하면 ack 한다")
     void acknowledgesOnSuccess() {
-        ReservationWorker worker = worker(new ApplicationPersister(repository));
+        ReservationWorker worker = worker(new ApplicationPersister(repository, event -> { }));
 
         assertThat(worker.handle("1-1", EVENT)).isEqualTo(Disposition.ACKNOWLEDGE);
         assertThat(repository.created).hasSize(1);
@@ -116,7 +116,7 @@ class ReservationWorkerTest {
     @Test
     @DisplayName("해석 불가 메시지는 지연 큐를 건너뛰고 곧바로 격리한다")
     void isolatesUndecodableImmediately() {
-        ReservationWorker worker = worker(new ApplicationPersister(repository));
+        ReservationWorker worker = worker(new ApplicationPersister(repository, event -> { }));
 
         Disposition disposition = worker.handleUndecodable(
                 "1-1", Map.of("applicationId", "?"), new IllegalArgumentException("broken"));
@@ -133,7 +133,7 @@ class ReservationWorkerTest {
     }
 
     private ApplicationPersister failingPersister() {
-        return new ApplicationPersister(repository) {
+        return new ApplicationPersister(repository, event -> { }) {
             @Override
             public void persist(ReservationEvent event) {
                 throw new IllegalStateException("deadlock");
