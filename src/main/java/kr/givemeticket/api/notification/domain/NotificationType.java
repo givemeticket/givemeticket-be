@@ -15,5 +15,8 @@ public enum NotificationType {
     APPLICATION_CANCELLED,
 
     /** 신청한 행사가 곧 시작한다. payload.eventAt 이 시작 일시다. */
-    EVENT_REMINDER
+    EVENT_REMINDER,
+
+    /** 찜한 행사의 신청이 열렸다. 받는 사람은 찜한 사람이지 신청자가 아니다. */
+    WISHED_CAMPAIGN_OPENED
 }

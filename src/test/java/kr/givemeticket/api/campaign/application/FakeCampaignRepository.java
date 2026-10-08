@@ -3,10 +3,13 @@ package kr.givemeticket.api.campaign.application;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
 import java.util.Optional;
+import java.util.function.Predicate;
 import kr.givemeticket.api.campaign.domain.Campaign;
 import kr.givemeticket.api.campaign.domain.CampaignRepository;
 import kr.givemeticket.api.campaign.domain.CampaignStatus;
@@ -70,6 +73,29 @@ class FakeCampaignRepository implements CampaignRepository {
     @Override
     public List<Campaign> findAllLiveByEventAtBetween(LocalDateTime from, LocalDateTime to) {
         throw new UnsupportedOperationException();
+    }
+
+    /** 실제 쿼리와 같은 규칙: 대소문자 무시 부분 일치, 삭제 제외, id 역순, 커서 미만. */
+    @Override
+    public List<Campaign> searchLiveByTitle(String keyword, Long cursor, int limit) {
+        String needle = keyword.toLowerCase(Locale.ROOT);
+        return livePage(campaign -> campaign.getTitle().toLowerCase(Locale.ROOT).contains(needle),
+                cursor, limit);
+    }
+
+    @Override
+    public List<Campaign> findLivePageOwnedBy(Long ownerId, Long cursor, int limit) {
+        return livePage(campaign -> campaign.isOwnedBy(ownerId), cursor, limit);
+    }
+
+    private List<Campaign> livePage(Predicate<Campaign> condition, Long cursor, int limit) {
+        return campaigns.values().stream()
+                .filter(campaign -> !campaign.isDeleted())
+                .filter(condition)
+                .filter(campaign -> cursor == null || campaign.getId() < cursor)
+                .sorted(Comparator.comparing(Campaign::getId).reversed())
+                .limit(limit)
+                .toList();
     }
 
     @Override

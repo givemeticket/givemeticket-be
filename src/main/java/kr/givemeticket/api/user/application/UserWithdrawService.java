@@ -7,6 +7,7 @@ import kr.givemeticket.api.campaign.domain.Campaign;
 import kr.givemeticket.api.campaign.domain.CampaignRepository;
 import kr.givemeticket.api.login.application.ProviderUnlinkService;
 import kr.givemeticket.api.notification.application.NotificationService;
+import kr.givemeticket.api.wish.application.WishService;
 import kr.givemeticket.api.user.domain.User;
 import kr.givemeticket.api.user.domain.UserException;
 import kr.givemeticket.api.user.domain.UserRepository;
@@ -32,6 +33,7 @@ public class UserWithdrawService {
     private final ApplicationService applicationService;
     private final ProviderUnlinkService providerUnlinkService;
     private final NotificationService notificationService;
+    private final WishService wishService;
 
     /**
      * 순서가 중요하다. 내가 연 캠페인을 먼저 지워야 그 캠페인에 건 내 신청도 함께 정리되고,
@@ -53,6 +55,7 @@ public class UserWithdrawService {
         int deletedCampaigns = deleteOwnedCampaigns(userId);
         int cancelledApplications = applicationService.cancelAllByUserWithdrawal(userId);
         notificationService.deleteAllOf(userId);
+        wishService.deleteAllOf(userId);
 
         userPersister.withdraw(userId);
 

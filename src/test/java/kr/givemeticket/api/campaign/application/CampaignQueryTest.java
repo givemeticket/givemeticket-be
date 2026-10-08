@@ -37,10 +37,12 @@ class CampaignQueryTest {
 
     private final CampaignCacheRepository noOpCache = new NoOpCampaignCacheRepository();
 
+    private final FakeWishRepository wishRepository = new FakeWishRepository();
+
     private final CampaignService campaignService = new CampaignService(
             campaignRepository, null, applicationRepository, null, stockRepository, null,
             noOpCache, new CampaignCacheEvictor(noOpCache), null,
-            new UserService(userRepository, null), event -> { });
+            new UserService(userRepository, null), event -> { }, wishRepository);
 
     @Test
     @DisplayName("목록은 개설자 정보와 잔여 재고를 함께 내려준다")

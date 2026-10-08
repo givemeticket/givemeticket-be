@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import kr.givemeticket.api.apply.domain.Application;
 import kr.givemeticket.api.apply.domain.ApplicationRepository;
 import kr.givemeticket.api.apply.domain.ApplicationStatus;
@@ -17,6 +18,7 @@ import kr.givemeticket.api.notification.domain.NotificationOutbox;
 import kr.givemeticket.api.notification.domain.NotificationOutboxRepository;
 import kr.givemeticket.api.notification.domain.NotificationRepository;
 import kr.givemeticket.api.notification.domain.NotificationType;
+import kr.givemeticket.api.wish.domain.WishRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -41,6 +43,7 @@ public class NotificationFanOut {
     private final NotificationRepository notificationRepository;
     private final ApplicationRepository applicationRepository;
     private final CampaignRepository campaignRepository;
+    private final WishRepository wishRepository;
 
     /**
      * @return 처리할 원본이 있었으면 true. false 면 지금은 더 할 일이 없다
@@ -88,10 +91,28 @@ public class NotificationFanOut {
                 .map(Campaign::getOwnerId)
                 .orElse(null);
 
-        return applicantsOf(outbox).stream()
-                .map(Application::getUserId)
+        List<Long> candidates = (outbox.getType() == NotificationType.WISHED_CAMPAIGN_OPENED)
+                ? wishersNotYetApplied(outbox.getCampaignId())
+                : applicantsOf(outbox).stream().map(Application::getUserId).toList();
+
+        return candidates.stream()
                 .filter(userId -> !Objects.equals(userId, ownerId))
                 .distinct()
+                .toList();
+    }
+
+    /**
+     * 오픈 알림은 찜한 사람에게 간다. 이미 자리를 잡은 사람은 뺀다 — 오픈을 미뤘다가 다시 열 때는
+     * 먼저 신청해 둔 사람이 있을 수 있는데, 그 사람에게 "열렸습니다"는 필요 없다.
+     */
+    private List<Long> wishersNotYetApplied(Long campaignId) {
+        Set<Long> applied = applicationRepository
+                .findAllByCampaignIdAndStatusIn(campaignId, ApplicationStatus.active()).stream()
+                .map(Application::getUserId)
+                .collect(Collectors.toSet());
+
+        return wishRepository.findUserIdsByCampaignId(campaignId).stream()
+                .filter(userId -> !applied.contains(userId))
                 .toList();
     }
 

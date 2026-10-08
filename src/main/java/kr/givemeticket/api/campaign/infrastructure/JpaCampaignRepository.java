@@ -8,6 +8,7 @@ import kr.givemeticket.api.campaign.domain.Campaign;
 import kr.givemeticket.api.campaign.domain.CampaignRepository;
 import kr.givemeticket.api.campaign.domain.CampaignStatus;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -58,6 +59,28 @@ public class JpaCampaignRepository implements CampaignRepository {
     @Override
     public List<Campaign> findAllByStatusAndOpenAtLessThanEqual(CampaignStatus status, LocalDateTime now) {
         return springDataJpaCampaignRepository.findAllByStatusAndOpenAtLessThanEqual(status, now);
+    }
+
+    @Override
+    public List<Campaign> searchLiveByTitle(String keyword, Long cursor, int limit) {
+        return springDataJpaCampaignRepository.searchLiveByTitle(
+                escapeLike(keyword), cursorOrMax(cursor), Limit.of(limit));
+    }
+
+    @Override
+    public List<Campaign> findLivePageOwnedBy(Long ownerId, Long cursor, int limit) {
+        return springDataJpaCampaignRepository.findLivePageOwnedBy(
+                ownerId, cursorOrMax(cursor), Limit.of(limit));
+    }
+
+    /** LIKE 의 와일드카드를 글자로 바꾼다. 이스케이프 문자는 쿼리의 ESCAPE '!' 와 맞춘다. */
+    static String escapeLike(String keyword) {
+        return keyword.replace("!", "!!").replace("%", "!%").replace("_", "!_");
+    }
+
+    /** 첫 페이지는 커서가 없다. 조건을 둘로 나누지 않고 가장 큰 값으로 대신한다. */
+    private static Long cursorOrMax(Long cursor) {
+        return (cursor == null) ? Long.MAX_VALUE : cursor;
     }
 
     @Override

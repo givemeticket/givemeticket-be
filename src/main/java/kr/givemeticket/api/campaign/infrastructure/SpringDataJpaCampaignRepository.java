@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import kr.givemeticket.api.campaign.domain.Campaign;
 import kr.givemeticket.api.campaign.domain.CampaignStatus;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -24,6 +25,34 @@ public interface SpringDataJpaCampaignRepository extends JpaRepository<Campaign,
     List<Campaign> findAllByIdInOrderByIdDesc(Collection<Long> ids);
 
     List<Campaign> findAllByStatusAndOpenAtLessThanEqual(CampaignStatus status, LocalDateTime now);
+
+    /**
+     * 앞에도 % 가 붙어 인덱스를 못 탄다. PK 역순으로 훑다가 limit 건을 채우면 멈추므로,
+     * 결과가 드문 검색어일수록 많이 읽는다. 행사 수가 늘면 FULLTEXT(ngram) 로 옮긴다.
+     *
+     * <p>이스케이프 문자로 백슬래시 대신 ! 를 쓴다. MySQL 문자열 리터럴에서 '\' 는
+     * 따옴표를 삼켜 버린다.
+     */
+    @Query("""
+            SELECT c FROM Campaign c
+             WHERE c.title LIKE CONCAT('%', :keyword, '%') ESCAPE '!'
+               AND c.status <> kr.givemeticket.api.campaign.domain.CampaignStatus.DELETED
+               AND c.id < :cursor
+             ORDER BY c.id DESC
+            """)
+    List<Campaign> searchLiveByTitle(
+            @Param("keyword") String escapedKeyword, @Param("cursor") Long cursor, Limit limit);
+
+    /** {@code idx_campaign_owner} 는 (owner_id) 지만 InnoDB 보조 인덱스 끝에 PK 가 붙어 있어 정렬까지 인덱스로 끝난다. */
+    @Query("""
+            SELECT c FROM Campaign c
+             WHERE c.ownerId = :ownerId
+               AND c.status <> kr.givemeticket.api.campaign.domain.CampaignStatus.DELETED
+               AND c.id < :cursor
+             ORDER BY c.id DESC
+            """)
+    List<Campaign> findLivePageOwnedBy(
+            @Param("ownerId") Long ownerId, @Param("cursor") Long cursor, Limit limit);
 
     @Query("""
             SELECT c FROM Campaign c
