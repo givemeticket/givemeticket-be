@@ -2,6 +2,7 @@ package kr.givemeticket.api.notification.ui.apiSpec;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import kr.givemeticket.api.global.auth.annotation.LoginUserId;
 import kr.givemeticket.api.notification.ui.dto.response.GetNotificationsResponse;
@@ -56,6 +57,7 @@ public interface NotificationApiSpec {
                     - 이미 읽은 알림이어도 204 입니다. 처음 읽은 시각이 유지됩니다
                     - 없는 알림이거나 남의 알림이면 404 NOTIFICATION_NOT_FOUND
                     """)
+    @ApiResponse(responseCode = "204", description = "읽음 처리됨. 본문 없음")
     ResponseEntity<Void> readNotification(
             @Parameter(hidden = true) @LoginUserId Long userId,
             @Parameter(description = "알림 ID", example = "1")
