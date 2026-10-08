@@ -95,6 +95,16 @@ public class CampaignApplicationException extends BusinessException {
 
     public static CampaignApplicationException invalidScope() {
         return new CampaignApplicationException(HttpStatus.BAD_REQUEST, "INVALID_SCOPE",
-                "scope는 owned 또는 participated여야 합니다.");
+                "scope는 owned, participated, wished 중 하나여야 합니다.");
+    }
+
+    public static CampaignApplicationException invalidKeyword(int maxLength) {
+        return new CampaignApplicationException(HttpStatus.BAD_REQUEST, "INVALID_KEYWORD",
+                "검색어는 1자 이상 " + maxLength + "자 이하여야 합니다.");
+    }
+
+    public static CampaignApplicationException invalidPageSize(int max) {
+        return new CampaignApplicationException(HttpStatus.BAD_REQUEST, "INVALID_PAGE_SIZE",
+                "size 는 1 이상 " + max + " 이하여야 합니다.");
     }
 }

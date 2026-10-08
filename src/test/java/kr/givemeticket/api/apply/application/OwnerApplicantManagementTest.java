@@ -391,6 +391,16 @@ class OwnerApplicantManagementTest {
         }
 
         @Override
+        public List<Campaign> searchLiveByTitle(String keyword, Long cursor, int limit) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<Campaign> findLivePageOwnedBy(Long ownerId, Long cursor, int limit) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public int markDeleted(Long campaignId) {
             throw new UnsupportedOperationException();
         }

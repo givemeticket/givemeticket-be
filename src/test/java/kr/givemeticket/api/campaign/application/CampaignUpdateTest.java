@@ -45,7 +45,7 @@ class CampaignUpdateTest {
 
     private final CampaignService campaignService = new CampaignService(
             campaignRepository, null, applicationRepository, null, stockRepository, stateRepository,
-            noOpCache, new CampaignCacheEvictor(noOpCache), null, null, events::add);
+            noOpCache, new CampaignCacheEvictor(noOpCache), null, null, events::add, null);
 
     @Nested
     @DisplayName("오픈 전 행사는")

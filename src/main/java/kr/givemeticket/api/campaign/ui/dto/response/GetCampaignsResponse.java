@@ -41,7 +41,7 @@ public record GetCampaignsResponse(List<CampaignItem> campaigns) {
             Instant myAppliedAt
     ) {
 
-        private static CampaignItem from(CampaignSummaryResponse summary) {
+        static CampaignItem from(CampaignSummaryResponse summary) {
             CampaignResponse campaign = summary.campaign();
             CampaignDetailInfo detail = campaign.detail();
             Long remainingStock = summary.remainingStock();

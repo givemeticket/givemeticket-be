@@ -19,6 +19,7 @@ import kr.givemeticket.api.campaign.application.dto.request.CampaignCreateReques
 import kr.givemeticket.api.campaign.application.dto.request.CampaignUpdateRequest;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignDetailResponse;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignOwnerInfo;
+import kr.givemeticket.api.campaign.application.dto.response.CampaignPageResponse;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignResponse;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignStockResponse;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignSummaryResponse;
@@ -38,6 +39,8 @@ import kr.givemeticket.api.campaign.domain.StockRepository;
 import kr.givemeticket.api.campaign.domain.ViewerRole;
 import kr.givemeticket.api.user.application.UserService;
 import kr.givemeticket.api.user.application.dto.response.UserResponse;
+import kr.givemeticket.api.wish.domain.Wish;
+import kr.givemeticket.api.wish.domain.WishRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -50,6 +53,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class CampaignService {
 
     private static final int SHORT_CODE_MAX_ATTEMPTS = 5;
+
+    public static final int DEFAULT_PAGE_SIZE = 20;
+    public static final int MAX_PAGE_SIZE = 50;
+    public static final int KEYWORD_MAX_LENGTH = 100;
     private static final Set<ApplicationStatus> CONFIRMED_ONLY = Set.of(ApplicationStatus.CONFIRMED);
 
     /**
@@ -76,6 +83,7 @@ public class CampaignService {
     private final ShortCodeGenerator shortCodeGenerator;
     private final UserService userService;
     private final ApplicationEventPublisher eventPublisher;
+    private final WishRepository wishRepository;
 
     @Transactional
     public CampaignResponse createCampaign(Long ownerId, CampaignCreateRequest request) {
@@ -184,6 +192,75 @@ public class CampaignService {
                 .toList();
 
         return toSummaries(campaigns, mineByCampaign);
+    }
+
+    /**
+     * 최근에 찜한 행사가 앞이다. 삭제된 행사도 status=DELETED 로 남는다 — 하트를 눌러 둔 행사가
+     * 말없이 사라지면 지운 것인지 사라진 것인지 알 수 없다. 거기서 찜을 해제하면 빠진다.
+     */
+    @Transactional(readOnly = true)
+    public List<CampaignSummaryResponse> getWishedCampaigns(Long userId) {
+        List<Long> campaignIds = wishRepository.findAllByUserIdLatestFirst(userId).stream()
+                .map(Wish::getCampaignId)
+                .toList();
+
+        return toSummaries(inOrderOf(campaignIds), Map.of());
+    }
+
+    /**
+     * 제목으로 찾는다. 로그인하지 않아도 된다. 삭제된 행사는 나오지 않는다.
+     *
+     * @param keyword 앞뒤 공백은 떼고 찾는다
+     */
+    @Transactional(readOnly = true)
+    public CampaignPageResponse searchByTitle(String keyword, Long cursor, Integer size) {
+        String trimmed = (keyword == null) ? "" : keyword.trim();
+        if (trimmed.isEmpty() || trimmed.length() > KEYWORD_MAX_LENGTH) {
+            throw CampaignApplicationException.invalidKeyword(KEYWORD_MAX_LENGTH);
+        }
+        int pageSize = pageSize(size);
+
+        return toPage(campaignRepository.searchLiveByTitle(trimmed, cursor, pageSize + 1), pageSize);
+    }
+
+    /**
+     * 한 사람이 연 행사. 남이 보는 목록이라 삭제된 행사는 빠진다. 내 것을 볼 때는
+     * 삭제된 행사까지 나오는 scope=owned 를 쓴다.
+     */
+    @Transactional(readOnly = true)
+    public CampaignPageResponse getCampaignsOwnedBy(Long ownerId, Long cursor, Integer size) {
+        int pageSize = pageSize(size);
+
+        return toPage(campaignRepository.findLivePageOwnedBy(ownerId, cursor, pageSize + 1), pageSize);
+    }
+
+    private static int pageSize(Integer size) {
+        int pageSize = (size == null) ? DEFAULT_PAGE_SIZE : size;
+        if (pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
+            throw CampaignApplicationException.invalidPageSize(MAX_PAGE_SIZE);
+        }
+        return pageSize;
+    }
+
+    /** 한 건 더 읽어 온 결과를 받는다. 남는 한 건이 있으면 다음 페이지가 있다는 뜻이다. */
+    private CampaignPageResponse toPage(List<Campaign> rows, int pageSize) {
+        boolean hasNext = rows.size() > pageSize;
+        List<Campaign> page = hasNext ? rows.subList(0, pageSize) : rows;
+
+        return new CampaignPageResponse(
+                toSummaries(page, Map.of()),
+                hasNext ? page.get(page.size() - 1).getId() : null);
+    }
+
+    /** 캠페인 조회는 id 순으로 돌아온다. 호출자가 정한 순서로 되돌려 놓는다. */
+    private List<Campaign> inOrderOf(List<Long> campaignIds) {
+        Map<Long, Campaign> campaignById = campaignRepository.findAllByIdIn(campaignIds).stream()
+                .collect(Collectors.toMap(Campaign::getId, Function.identity()));
+
+        return campaignIds.stream()
+                .map(campaignById::get)
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     /**

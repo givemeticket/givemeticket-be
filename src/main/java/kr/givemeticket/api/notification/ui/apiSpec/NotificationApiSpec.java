@@ -29,6 +29,7 @@ public interface NotificationApiSpec {
                       - CAMPAIGN_DELETED: 행사가 삭제되어 신청이 취소됐습니다
                       - APPLICATION_CANCELLED: 주최자가 내 신청을 취소했습니다. 행사는 그대로 있습니다
                       - EVENT_REMINDER: 행사가 24시간 안에 시작합니다. eventAt 이 시작 일시입니다
+                      - WISHED_CAMPAIGN_OPENED: 찜한 행사의 신청이 열렸습니다. 이미 신청한 사람에게는 가지 않습니다
                     - campaignTitle 은 알림이 만들어질 때의 제목입니다. 이후에 바뀌어도 그대로 남습니다
                     - 알림은 90일 동안 보관됩니다
                     """)

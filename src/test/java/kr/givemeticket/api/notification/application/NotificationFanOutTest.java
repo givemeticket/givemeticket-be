@@ -30,9 +30,11 @@ class NotificationFanOutTest {
     private final FakeNotificationRepository notificationRepository = new FakeNotificationRepository();
     private final FakeApplicationRepository applicationRepository = new FakeApplicationRepository();
     private final FakeCampaignRepository campaignRepository = new FakeCampaignRepository();
+    private final FakeWishRepository wishRepository = new FakeWishRepository();
 
     private final NotificationFanOut fanOut = new NotificationFanOut(
-            outboxRepository, notificationRepository, applicationRepository, campaignRepository);
+            outboxRepository, notificationRepository, applicationRepository, campaignRepository,
+            wishRepository);
 
     @Test
     @DisplayName("정보 변경은 확정된 신청자에게만 간다 — 취소한 사람과 주최자는 빠진다")
@@ -119,6 +121,37 @@ class NotificationFanOutTest {
                     assertThat(notification.getType()).isEqualTo(NotificationType.EVENT_REMINDER);
                     assertThat(notification.getPayload().eventAt()).isEqualTo(upcoming);
                 });
+    }
+
+    @Test
+    @DisplayName("오픈 알림은 찜한 사람에게 간다 — 이미 신청한 사람과 주최자는 빠진다")
+    void openedGoesToWishersNotYetApplied() {
+        givenCampaign();
+        wishRepository.put(7L, CAMPAIGN_ID);
+        wishRepository.put(8L, CAMPAIGN_ID);
+        wishRepository.put(OWNER_ID, CAMPAIGN_ID);
+        wishRepository.put(9L, 2L);
+        givenApplication(101L, 8L, ApplicationStatus.CONFIRMED, null);
+        givenOutbox(NotificationType.WISHED_CAMPAIGN_OPENED, null, "opened:1:2026-10-01T12:00:00Z");
+
+        fanOut.fanOutNext();
+
+        assertThat(notificationRepository.rows).extracting(Notification::getUserId).containsExactly(7L);
+        assertThat(notificationRepository.rows.get(0).getType())
+                .isEqualTo(NotificationType.WISHED_CAMPAIGN_OPENED);
+    }
+
+    @Test
+    @DisplayName("오픈 알림은 신청 취소한 찜 사용자에게도 간다 — 다시 신청할 수 있다")
+    void openedGoesToWisherWhoCancelled() {
+        givenCampaign();
+        wishRepository.put(7L, CAMPAIGN_ID);
+        givenApplication(101L, 7L, ApplicationStatus.CANCELLED, null);
+        givenOutbox(NotificationType.WISHED_CAMPAIGN_OPENED, null, "opened:1:2026-10-01T12:00:00Z");
+
+        fanOut.fanOutNext();
+
+        assertThat(notificationRepository.rows).extracting(Notification::getUserId).containsExactly(7L);
     }
 
     private void givenCampaign() {

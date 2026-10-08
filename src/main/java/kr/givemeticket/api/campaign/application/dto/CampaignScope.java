@@ -9,7 +9,10 @@ public enum CampaignScope {
     OWNED,
 
     /** 내가 참여중인 행사 (나의 티켓) */
-    PARTICIPATED;
+    PARTICIPATED,
+
+    /** 내가 찜한 행사 */
+    WISHED;
 
     /**
      * 쿼리 파라미터는 소문자로 온다. Spring 기본 enum 변환은 대소문자를 구분해서 직접 처리한다.

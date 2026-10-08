@@ -9,6 +9,7 @@ import kr.givemeticket.api.campaign.ui.dto.request.PatchCampaignRequest;
 import kr.givemeticket.api.campaign.ui.dto.request.PostCampaignRequest;
 import kr.givemeticket.api.campaign.ui.dto.response.CloseCampaignResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.CreateCampaignResponse;
+import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignPageResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignStockResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignsResponse;
@@ -79,9 +80,32 @@ public class CampaignController implements CampaignApiSpec {
                 switch (campaignScope) {
                     case OWNED -> campaignService.getOwnedCampaigns(userId);
                     case PARTICIPATED -> campaignService.getParticipatedCampaigns(userId);
+                    case WISHED -> campaignService.getWishedCampaigns(userId);
                 });
 
         return ResponseEntity.ok(getCampaignsResponse);
+    }
+
+    @Override
+    @GetMapping("campaigns/search")
+    public ResponseEntity<GetCampaignPageResponse> searchCampaigns(
+            @RequestParam("keyword") String keyword,
+            @RequestParam(value = "cursor", required = false) Long cursor,
+            @RequestParam(value = "size", required = false) Integer size
+    ) {
+        return ResponseEntity.ok(GetCampaignPageResponse.from(
+                campaignService.searchByTitle(keyword, cursor, size)));
+    }
+
+    @Override
+    @GetMapping("users/{userId}/campaigns")
+    public ResponseEntity<GetCampaignPageResponse> readCampaignsOwnedBy(
+            @PathVariable("userId") Long ownerId,
+            @RequestParam(value = "cursor", required = false) Long cursor,
+            @RequestParam(value = "size", required = false) Integer size
+    ) {
+        return ResponseEntity.ok(GetCampaignPageResponse.from(
+                campaignService.getCampaignsOwnedBy(ownerId, cursor, size)));
     }
 
     @Override

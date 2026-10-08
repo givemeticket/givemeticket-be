@@ -32,7 +32,7 @@ class CampaignCloseTest {
 
     private final CampaignService campaignService = new CampaignService(
             campaignRepository, null, null, null, stockRepository, stateRepository,
-            noOpCache, new CampaignCacheEvictor(noOpCache), null, null, event -> { });
+            noOpCache, new CampaignCacheEvictor(noOpCache), null, null, event -> { }, null);
 
     @Test
     @DisplayName("종료하면 상태가 CLOSED 가 되고 신청 게이트가 사라진다")

@@ -31,6 +31,21 @@ public interface CampaignRepository {
     List<Campaign> findAllByStatusAndOpenAtLessThanEqual(CampaignStatus status, LocalDateTime now);
 
     /**
+     * 제목에 검색어가 들어간, 삭제되지 않은 행사를 최신순으로. id 가 {@code cursor} 보다 작은 것만 본다.
+     *
+     * @param keyword 사용자가 입력한 그대로. %·_ 같은 와일드카드 문자도 글자로 찾는다
+     * @param cursor  첫 페이지면 null
+     */
+    List<Campaign> searchLiveByTitle(String keyword, Long cursor, int limit);
+
+    /**
+     * 한 사람이 연, 삭제되지 않은 행사를 최신순으로. 남이 보는 목록이라 삭제된 행사는 뺀다.
+     *
+     * @param cursor 첫 페이지면 null
+     */
+    List<Campaign> findLivePageOwnedBy(Long ownerId, Long cursor, int limit);
+
+    /**
      * 행사 시작 일시가 (from, to] 에 드는, 삭제되지 않은 행사. 임박 알림 대상을 고른다.
      */
     List<Campaign> findAllLiveByEventAtBetween(LocalDateTime from, LocalDateTime to);

@@ -9,6 +9,7 @@ import kr.givemeticket.api.campaign.ui.dto.request.PatchCampaignRequest;
 import kr.givemeticket.api.campaign.ui.dto.request.PostCampaignRequest;
 import kr.givemeticket.api.campaign.ui.dto.response.CloseCampaignResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.CreateCampaignResponse;
+import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignPageResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignStockResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignsResponse;
@@ -62,7 +63,8 @@ public interface CampaignApiSpec {
 
     @Operation(summary = "캠페인 목록 조회",
             description = """
-                    owned는 내가 만든 행사, participated는 내가 참여중인 행사(나의 티켓)입니다.
+                    owned는 내가 만든 행사, participated는 내가 참여중인 행사(나의 티켓),
+                    wished는 내가 찜한 행사입니다.
 
                     - 목록에는 카드에 필요한 eventAt/location/imageUrl만 펼쳐지고 본문은 상세 조회에서만 내려갑니다
                     - 개설자 정보는 owner(id/nickname/profileImageUrl)에 담깁니다
@@ -80,12 +82,54 @@ public interface CampaignApiSpec {
                     - participated 는 최근 신청이 위로 오도록 myAppliedAt 내림차순으로 내려갑니다.
                       취소했다가 다시 신청하면 myAppliedAt 이 재신청 시각으로 갱신되어 맨 위로
                       올라옵니다. owned 에서는 myApplicationStatus/myAppliedAt 이 null 입니다
+                    - wished 는 최근에 찜한 행사가 위로 옵니다. 주최자가 지운 행사도 status=DELETED 로
+                      남고, DELETE /campaigns/{campaignId}/wish 로 해제하면 빠집니다.
+                      myApplicationStatus/myAppliedAt 은 null 입니다
                     """)
     ResponseEntity<GetCampaignsResponse> readCampaigns(
             @Parameter(hidden = true) @LoginUserId Long userId,
             @Parameter(description = "조회 범위", example = "owned",
-                    schema = @Schema(allowableValues = {"owned", "participated"}))
+                    schema = @Schema(allowableValues = {"owned", "participated", "wished"}))
             @RequestParam("scope") String scope
+    );
+
+    @Operation(summary = "캠페인 제목 검색",
+            description = """
+                    제목에 검색어가 들어간 행사를 최신순으로 내려줍니다. 로그인하지 않아도 됩니다.
+
+                    - 검색어는 앞뒤 공백을 떼고 1~100자여야 합니다. 벗어나면 400 INVALID_KEYWORD
+                    - 대소문자를 구분하지 않습니다. %, _ 도 와일드카드가 아니라 글자로 찾습니다
+                    - 삭제된 행사는 나오지 않습니다. 오픈 전·진행 중·종료된 행사는 모두 나옵니다
+                    - 첫 페이지는 cursor 없이 부릅니다. 다음 페이지는 응답의 nextCursor 를 cursor 로 넘기고,
+                      nextCursor 가 null 이면 마지막 페이지입니다
+                    - size 는 기본 20, 최대 50 입니다. 벗어나면 400 INVALID_PAGE_SIZE
+                    - 카드 모양은 GET /campaigns 와 같습니다. myApplicationStatus/myAppliedAt 은 null 입니다
+                    """)
+    ResponseEntity<GetCampaignPageResponse> searchCampaigns(
+            @Parameter(description = "검색어", example = "콘서트")
+            @RequestParam("keyword") String keyword,
+            @Parameter(description = "이전 응답의 nextCursor. 첫 페이지면 비웁니다", example = "120")
+            @RequestParam(value = "cursor", required = false) Long cursor,
+            @Parameter(description = "페이지 크기. 기본 20, 최대 50", example = "20")
+            @RequestParam(value = "size", required = false) Integer size
+    );
+
+    @Operation(summary = "작성자로 캠페인 검색",
+            description = """
+                    한 사람이 연 행사를 최신순으로 내려줍니다. 로그인하지 않아도 됩니다.
+
+                    - 남이 보는 목록이라 삭제된 행사는 빠집니다. 내가 연 행사를 삭제된 것까지 보려면
+                      GET /campaigns?scope=owned 를 쓰세요
+                    - 없는 사용자이거나 연 행사가 없으면 빈 목록입니다
+                    - 페이징 규칙은 제목 검색과 같습니다
+                    """)
+    ResponseEntity<GetCampaignPageResponse> readCampaignsOwnedBy(
+            @Parameter(description = "작성자(개설자) 사용자 ID", example = "1")
+            @PathVariable("userId") Long ownerId,
+            @Parameter(description = "이전 응답의 nextCursor. 첫 페이지면 비웁니다", example = "120")
+            @RequestParam(value = "cursor", required = false) Long cursor,
+            @Parameter(description = "페이지 크기. 기본 20, 최대 50", example = "20")
+            @RequestParam(value = "size", required = false) Integer size
     );
 
     @Operation(summary = "캠페인 수정",
