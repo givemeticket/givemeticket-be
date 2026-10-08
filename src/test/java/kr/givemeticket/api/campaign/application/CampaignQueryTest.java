@@ -40,7 +40,7 @@ class CampaignQueryTest {
     private final CampaignService campaignService = new CampaignService(
             campaignRepository, null, applicationRepository, null, stockRepository, null,
             noOpCache, new CampaignCacheEvictor(noOpCache), null,
-            new UserService(userRepository, null));
+            new UserService(userRepository, null), event -> { });
 
     @Test
     @DisplayName("목록은 개설자 정보와 잔여 재고를 함께 내려준다")

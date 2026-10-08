@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -16,6 +17,7 @@ import java.util.Set;
 import kr.givemeticket.api.apply.application.dto.response.ApplicantResponse;
 import kr.givemeticket.api.apply.application.dto.response.ApplicationResponse;
 import kr.givemeticket.api.apply.domain.Application;
+import kr.givemeticket.api.apply.domain.ApplicationCancelledByOwnerEvent;
 import kr.givemeticket.api.apply.domain.ApplicationStatus;
 import kr.givemeticket.api.apply.domain.FailureReason;
 import kr.givemeticket.api.campaign.application.CampaignApplicationException;
@@ -52,10 +54,12 @@ class OwnerApplicantManagementTest {
     private final FakeSeatRepository stockRepository = new FakeSeatRepository();
     private final FakeUserRepository userRepository = new FakeUserRepository();
 
+    private final List<Object> events = new ArrayList<>();
+
     private final ApplicationService service = new ApplicationService(
             applicationRepository,
             new UserService(userRepository, null),
-            new ApplicationPersister(applicationRepository),
+            new ApplicationPersister(applicationRepository, events::add),
             campaignRepository,
             null,
             stockRepository,
@@ -155,6 +159,33 @@ class OwnerApplicantManagementTest {
         assertThat(response.failureReason()).isEqualTo(FailureReason.CANCELLED_BY_OWNER);
         assertThat(application.getStatus()).isEqualTo(ApplicationStatus.CANCELLED);
         assertThat(stockRepository.stock.get(CAMPAIGN_ID)).isEqualTo(TOTAL_STOCK);
+    }
+
+    @Test
+    @DisplayName("내보내면 신청자에게 알릴 이벤트가 나간다")
+    void publishesCancelledEvent() {
+        givenCampaign(CampaignStatus.OPEN);
+        givenApplicant(101L, 7L, "민기", BASE);
+        stockRepository.reserve(CAMPAIGN_ID, 7L);
+
+        service.cancelByOwner(CAMPAIGN_ID, 101L, OWNER_ID);
+
+        assertThat(events).containsExactly(
+                new ApplicationCancelledByOwnerEvent(101L, CAMPAIGN_ID, 7L));
+    }
+
+    @Test
+    @DisplayName("이미 취소된 신청을 다시 내보내도 이벤트는 한 번이다")
+    void publishesCancelledEventOnce() {
+        givenCampaign(CampaignStatus.OPEN);
+        givenApplicant(101L, 7L, "민기", BASE);
+        stockRepository.reserve(CAMPAIGN_ID, 7L);
+        service.cancelByOwner(CAMPAIGN_ID, 101L, OWNER_ID);
+
+        assertThatThrownBy(() -> service.cancelByOwner(CAMPAIGN_ID, 101L, OWNER_ID))
+                .isInstanceOf(ApplyApplicationException.class);
+
+        assertThat(events).hasSize(1);
     }
 
     @Test
@@ -351,6 +382,11 @@ class OwnerApplicantManagementTest {
         @Override
         public List<Campaign> findAllByStatusAndOpenAtLessThanEqual(
                 CampaignStatus status, LocalDateTime now) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<Campaign> findAllLiveByEventAtBetween(LocalDateTime from, LocalDateTime to) {
             throw new UnsupportedOperationException();
         }
 

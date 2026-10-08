@@ -61,6 +61,11 @@ public class JpaCampaignRepository implements CampaignRepository {
     }
 
     @Override
+    public List<Campaign> findAllLiveByEventAtBetween(LocalDateTime from, LocalDateTime to) {
+        return springDataJpaCampaignRepository.findAllLiveByEventAtBetween(from, to);
+    }
+
+    @Override
     public int markDeleted(Long campaignId) {
         return springDataJpaCampaignRepository.markDeletedIfNotDeleted(campaignId, LocalDateTime.now());
     }

@@ -146,7 +146,7 @@ public class ApplicationService {
         Campaign campaign = findManageableCampaign(campaignId, ownerId);
         Application application = findApplicationOf(campaign, applicationId);
 
-        if (applicationPersister.cancelByOwner(applicationId) == 0) {
+        if (applicationPersister.cancelByOwner(application) == 0) {
             throw ApplyApplicationException.notCancelable(currentStatusOf(applicationId));
         }
 

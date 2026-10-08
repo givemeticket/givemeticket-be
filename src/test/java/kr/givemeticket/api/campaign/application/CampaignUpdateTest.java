@@ -5,9 +5,14 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import kr.givemeticket.api.apply.domain.Application;
 import kr.givemeticket.api.apply.domain.ApplicationStatus;
+import kr.givemeticket.api.campaign.application.dto.CampaignDetailCommand;
 import kr.givemeticket.api.campaign.application.dto.request.CampaignUpdateRequest;
+import kr.givemeticket.api.campaign.domain.CampaignChange;
+import kr.givemeticket.api.campaign.domain.CampaignChangedEvent;
 import kr.givemeticket.api.campaign.domain.Campaign;
 import kr.givemeticket.api.campaign.domain.CampaignState;
 import kr.givemeticket.api.campaign.domain.CampaignCacheRepository;
@@ -34,11 +39,13 @@ class CampaignUpdateTest {
     private final FakeCampaignStateRepository stateRepository = new FakeCampaignStateRepository();
     private final FakeApplicationRepository applicationRepository = new FakeApplicationRepository();
 
+    private final List<Object> events = new ArrayList<>();
+
     private final CampaignCacheRepository noOpCache = new NoOpCampaignCacheRepository();
 
     private final CampaignService campaignService = new CampaignService(
             campaignRepository, null, applicationRepository, null, stockRepository, stateRepository,
-            noOpCache, new CampaignCacheEvictor(noOpCache), null, null);
+            noOpCache, new CampaignCacheEvictor(noOpCache), null, null, events::add);
 
     @Nested
     @DisplayName("오픈 전 행사는")
@@ -262,6 +269,70 @@ class CampaignUpdateTest {
             assertThatCode(() -> campaignService.updateCampaign(CAMPAIGN_ID, OWNER_ID,
                     new CampaignUpdateRequest("제목만 수정", null, null, null)))
                     .doesNotThrowAnyException();
+        }
+    }
+
+    @Nested
+    @DisplayName("신청자에게 알릴 변경이 있으면")
+    class Notice {
+
+        private final LocalDateTime eventAt = OPEN_AT.plusDays(3);
+
+        @Test
+        @DisplayName("장소가 바뀌면 바뀐 항목만 담아 이벤트를 낸다")
+        void publishesChangedFields() {
+            Campaign campaign = given(CampaignStatus.OPEN, 100);
+            campaign.changeDetail(detail("A홀", eventAt).toCampaignDetail());
+
+            campaignService.updateCampaign(CAMPAIGN_ID, OWNER_ID,
+                    new CampaignUpdateRequest(null, null, null, detail("B홀", eventAt)));
+
+            assertThat(events).singleElement()
+                    .isInstanceOfSatisfying(CampaignChangedEvent.class, event -> {
+                        assertThat(event.campaignId()).isEqualTo(CAMPAIGN_ID);
+                        assertThat(event.changes()).containsExactly(
+                                new CampaignChange(CampaignChange.Field.LOCATION, "A홀", "B홀"));
+                    });
+        }
+
+        @Test
+        @DisplayName("폼을 그대로 다시 보내면 이벤트가 없다")
+        void ignoresSameForm() {
+            Campaign campaign = given(CampaignStatus.OPEN, 100);
+            campaign.changeDetail(detail("A홀", eventAt).toCampaignDetail());
+
+            campaignService.updateCampaign(CAMPAIGN_ID, OWNER_ID,
+                    new CampaignUpdateRequest("테스트 행사", OPEN_AT, 100, detail("A홀", eventAt)));
+
+            assertThat(events).isEmpty();
+        }
+
+        @Test
+        @DisplayName("정원만 바꾸면 이벤트가 없다 — 신청자와 무관하다")
+        void ignoresStockOnlyChange() {
+            given(CampaignStatus.OPEN, 100);
+            stateRepository.states.put(CAMPAIGN_ID, new CampaignState(100));
+
+            campaignService.updateCampaign(CAMPAIGN_ID, OWNER_ID, request(null, 150));
+
+            assertThat(events).isEmpty();
+        }
+
+        @Test
+        @DisplayName("요청이 거절되면 이벤트도 없다")
+        void publishesNothingOnRejection() {
+            given(CampaignStatus.OPEN, 100);
+
+            assertThatThrownBy(() -> campaignService.updateCampaign(CAMPAIGN_ID, OWNER_ID,
+                    new CampaignUpdateRequest("바뀐 제목", null, 50, null)))
+                    .isInstanceOf(CampaignApplicationException.class);
+
+            assertThat(events).isEmpty();
+        }
+
+        private CampaignDetailCommand detail(String location, LocalDateTime eventAt) {
+            return new CampaignDetailCommand(
+                    "본문", eventAt, null, location, null, null, null, null);
         }
     }
 

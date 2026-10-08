@@ -24,6 +24,9 @@ import kr.givemeticket.api.campaign.application.dto.response.CampaignStockRespon
 import kr.givemeticket.api.campaign.application.dto.response.CampaignSummaryResponse;
 import kr.givemeticket.api.campaign.domain.Campaign;
 import kr.givemeticket.api.campaign.domain.CampaignCacheRepository;
+import kr.givemeticket.api.campaign.domain.CampaignChange;
+import kr.givemeticket.api.campaign.domain.CampaignChangedEvent;
+import kr.givemeticket.api.campaign.domain.CampaignNotice;
 import kr.givemeticket.api.campaign.domain.CampaignRepository;
 import kr.givemeticket.api.campaign.domain.CampaignSnapshot;
 import kr.givemeticket.api.campaign.domain.CampaignState;
@@ -37,6 +40,7 @@ import kr.givemeticket.api.user.application.UserService;
 import kr.givemeticket.api.user.application.dto.response.UserResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -71,6 +75,7 @@ public class CampaignService {
     private final CampaignCacheEvictor campaignCacheEvictor;
     private final ShortCodeGenerator shortCodeGenerator;
     private final UserService userService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public CampaignResponse createCampaign(Long ownerId, CampaignCreateRequest request) {
@@ -258,6 +263,9 @@ public class CampaignService {
      *
      * <p>지금 값과 같은 값이 와도 오류로 보지 않는다. 프론트가 폼 전체를 그대로 보내는 게
      * 자연스러운데, 안 바꾼 필드까지 검사하면 정원만 늘리려 해도 막히기 때문이다.
+     *
+     * <p>신청자에게 알릴 항목(제목·일시·장소)이 실제로 바뀌었으면 이벤트를 낸다. 같은 트랜잭션에서
+     * 알림 아웃박스에 기록되므로 수정이 롤백되면 알림도 남지 않는다.
      */
     @Transactional
     public CampaignResponse updateCampaign(Long campaignId, Long userId, CampaignUpdateRequest request) {
@@ -265,6 +273,7 @@ public class CampaignService {
             throw CampaignApplicationException.nothingToUpdate();
         }
         Campaign campaign = findManageableCampaign(campaignId, userId);
+        CampaignNotice before = CampaignNotice.of(campaign);
         // 오픈 시각을 미루면 상태가 SCHEDULED 로 돌아가므로, 판정 기준은 손대기 전에 잡아둔다.
         boolean opened = !campaign.isScheduled();
 
@@ -285,6 +294,12 @@ public class CampaignService {
         }
 
         campaignCacheEvictor.evict(campaign.getShortCode());
+
+        List<CampaignChange> changes = before.diff(CampaignNotice.of(campaign));
+        if (!changes.isEmpty()) {
+            eventPublisher.publishEvent(new CampaignChangedEvent(
+                    campaignId, campaign.getTitle(), campaign.getShortCode(), changes));
+        }
 
         return CampaignResponse.of(campaign);
     }
@@ -402,7 +417,7 @@ public class CampaignService {
         campaignStateRepository.remove(campaignId);
         campaignCacheEvictor.evict(campaign.getShortCode());
 
-        if (campaignPersister.markDeleted(campaignId) == 0) {
+        if (campaignPersister.markDeleted(campaign) == 0) {
             // 그 사이 다른 요청이 이미 지웠다. 취소를 두 번 돌리지 않는다.
             throw CampaignApplicationException.campaignDeleted();
         }

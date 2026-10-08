@@ -21,7 +21,7 @@ class ApplicationPersisterPersistTest {
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 8, 28, 10, 0);
 
     private final FakeApplicationRepository repository = new FakeApplicationRepository();
-    private final ApplicationPersister persister = new ApplicationPersister(repository);
+    private final ApplicationPersister persister = new ApplicationPersister(repository, event -> { });
 
     @Test
     @DisplayName("행이 없으면 이벤트가 실어 온 id 그대로 만든다")

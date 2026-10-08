@@ -1,7 +1,10 @@
 package kr.givemeticket.api.campaign.application;
 
+import kr.givemeticket.api.campaign.domain.Campaign;
+import kr.givemeticket.api.campaign.domain.CampaignDeletedEvent;
 import kr.givemeticket.api.campaign.domain.CampaignRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,13 +19,21 @@ import org.springframework.transaction.annotation.Transactional;
 public class CampaignPersister {
 
     private final CampaignRepository campaignRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
+     * 실제로 지운 요청만 삭제 이벤트를 낸다. 동시에 두 번 눌러도 알림은 한 번이다.
+     *
      * @return 실제로 바뀐 행 수. 0이면 그 사이 다른 요청이 이미 삭제한 것이므로
      *         호출자는 신청 취소를 중복해서 돌리면 안 된다
      */
     @Transactional
-    public int markDeleted(Long campaignId) {
-        return campaignRepository.markDeleted(campaignId);
+    public int markDeleted(Campaign campaign) {
+        int updated = campaignRepository.markDeleted(campaign.getId());
+        if (updated == 1) {
+            eventPublisher.publishEvent(new CampaignDeletedEvent(
+                    campaign.getId(), campaign.getTitle(), campaign.getShortCode()));
+        }
+        return updated;
     }
 }
