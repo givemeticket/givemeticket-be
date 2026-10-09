@@ -1,11 +1,15 @@
 package kr.givemeticket.api.campaign.infrastructure;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.TypedQuery;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import kr.givemeticket.api.campaign.domain.Campaign;
+import kr.givemeticket.api.campaign.domain.CampaignCursor;
 import kr.givemeticket.api.campaign.domain.CampaignRepository;
+import kr.givemeticket.api.campaign.domain.CampaignSearchCondition;
 import kr.givemeticket.api.campaign.domain.CampaignStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Limit;
@@ -16,6 +20,7 @@ import org.springframework.stereotype.Repository;
 public class JpaCampaignRepository implements CampaignRepository {
 
     private final SpringDataJpaCampaignRepository springDataJpaCampaignRepository;
+    private final EntityManager entityManager;
 
     @Override
     public Campaign save(Campaign campaign) {
@@ -62,20 +67,33 @@ public class JpaCampaignRepository implements CampaignRepository {
     }
 
     @Override
-    public List<Campaign> searchLiveByTitle(String keyword, Long cursor, int limit) {
-        return springDataJpaCampaignRepository.searchLiveByTitle(
-                escapeLike(keyword), cursorOrMax(cursor), Limit.of(limit));
+    public List<Campaign> search(CampaignSearchCondition condition, CampaignCursor cursor, int limit) {
+        CampaignSearchQuery query = CampaignSearchQuery.of(condition).after(cursor);
+        TypedQuery<Campaign> typed = entityManager.createQuery(
+                "SELECT c FROM Campaign c" + query.where() + query.orderBy(), Campaign.class);
+        query.parameters().forEach(typed::setParameter);
+        return typed.setMaxResults(limit).getResultList();
+    }
+
+    @Override
+    public long count(CampaignSearchCondition condition) {
+        CampaignSearchQuery query = CampaignSearchQuery.of(condition);
+        TypedQuery<Long> typed = entityManager.createQuery(
+                "SELECT COUNT(c) FROM Campaign c" + query.where(), Long.class);
+        query.parameters().forEach(typed::setParameter);
+        return typed.getSingleResult();
+    }
+
+    @Override
+    public List<Campaign> findAllScheduledByOpenAtBetween(LocalDateTime from, LocalDateTime to) {
+        return springDataJpaCampaignRepository.findAllByStatusAndOpenAtGreaterThanAndOpenAtLessThanEqual(
+                CampaignStatus.SCHEDULED, from, to);
     }
 
     @Override
     public List<Campaign> findLivePageOwnedBy(Long ownerId, Long cursor, int limit) {
         return springDataJpaCampaignRepository.findLivePageOwnedBy(
                 ownerId, cursorOrMax(cursor), Limit.of(limit));
-    }
-
-    /** LIKE 의 와일드카드를 글자로 바꾼다. 이스케이프 문자는 쿼리의 ESCAPE '!' 와 맞춘다. */
-    static String escapeLike(String keyword) {
-        return keyword.replace("!", "!!").replace("%", "!%").replace("_", "!_");
     }
 
     /** 첫 페이지는 커서가 없다. 조건을 둘로 나누지 않고 가장 큰 값으로 대신한다. */

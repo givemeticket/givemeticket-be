@@ -113,6 +113,6 @@ class NotificationServiceTest {
     private Notification given(Long userId) {
         return repository.save(new Notification(
                 userId, 1L, NotificationType.CAMPAIGN_CHANGED,
-                NotificationPayload.of("행사", "code"), null));
+                NotificationPayload.of("행사", "code", "주최자"), null));
     }
 }

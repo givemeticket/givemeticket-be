@@ -31,12 +31,21 @@ public interface CampaignRepository {
     List<Campaign> findAllByStatusAndOpenAtLessThanEqual(CampaignStatus status, LocalDateTime now);
 
     /**
-     * 제목에 검색어가 들어간, 삭제되지 않은 행사를 최신순으로. id 가 {@code cursor} 보다 작은 것만 본다.
+     * 조건에 맞는 행사를 정렬 순서대로, 커서 다음부터 최대 {@code limit} 건.
      *
-     * @param keyword 사용자가 입력한 그대로. %·_ 같은 와일드카드 문자도 글자로 찾는다
-     * @param cursor  첫 페이지면 null
+     * <p>매진 여부는 Redis 재고가 아니라 확정된 신청 수로 판단한다. 조건과 정렬, 전체 건수를 한
+     * 쿼리 안에서 맞추려면 DB 에 있는 값이어야 한다. 방금 잡힌 자리는 신청 행이 저장되기 전까지
+     * (보통 1초 안) 세지 않는다.
+     *
+     * @param cursor 첫 페이지면 null
      */
-    List<Campaign> searchLiveByTitle(String keyword, Long cursor, int limit);
+    List<Campaign> search(CampaignSearchCondition condition, CampaignCursor cursor, int limit);
+
+    /** 조건에 맞는 전체 건수. 커서와 상관없다. */
+    long count(CampaignSearchCondition condition);
+
+    /** 오픈 전이고 오픈 시각이 (from, to] 에 드는 행사. 찜한 사람에게 오픈 임박을 알린다. */
+    List<Campaign> findAllScheduledByOpenAtBetween(LocalDateTime from, LocalDateTime to);
 
     /**
      * 한 사람이 연, 삭제되지 않은 행사를 최신순으로. 남이 보는 목록이라 삭제된 행사는 뺀다.

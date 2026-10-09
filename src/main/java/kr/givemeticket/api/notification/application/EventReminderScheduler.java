@@ -2,13 +2,11 @@ package kr.givemeticket.api.notification.application;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.List;
 import kr.givemeticket.api.campaign.domain.Campaign;
 import kr.givemeticket.api.campaign.domain.CampaignRepository;
 import kr.givemeticket.api.global.time.Utc;
 import kr.givemeticket.api.notification.domain.NotificationOutbox;
 import kr.givemeticket.api.notification.domain.NotificationOutboxRepository;
-import kr.givemeticket.api.notification.domain.NotificationPayload;
 import kr.givemeticket.api.notification.domain.NotificationType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +16,9 @@ import org.springframework.stereotype.Component;
 
 /**
  * 시작이 하루 안으로 다가온 행사의 신청자에게 임박 알림을 보낸다.
+ *
+ * <p>기준은 주최자가 안내 정보에 적는 행사 일시(detail.eventAt)다. 이 값을 적지 않은 행사에는
+ * 나가지 않는다.
  *
  * <p>"정확히 24시간 전"이 아니라 "24시간 안쪽인데 아직 안 보낸 것"을 찾는다. 서버가 내려가 있던
  * 동안 그 순간을 지나쳤어도 올라오자마자 보낸다.
@@ -35,6 +36,7 @@ public class EventReminderScheduler {
 
     private final CampaignRepository campaignRepository;
     private final NotificationOutboxRepository outboxRepository;
+    private final NotificationPayloads payloads;
 
     @Scheduled(fixedDelayString = "${notification.reminder-delay-ms:60000}")
     public void enqueueReminders() {
@@ -51,8 +53,7 @@ public class EventReminderScheduler {
                 outboxRepository.save(new NotificationOutbox(
                         campaign.getId(),
                         NotificationType.EVENT_REMINDER,
-                        new NotificationPayload(
-                                campaign.getTitle(), campaign.getShortCode(), List.of(), eventAt),
+                        payloads.of(campaign).withEventAt(eventAt),
                         dedupeKey));
                 log.info("event reminder enqueued: campaignId={}, eventAt={}", campaign.getId(), eventAt);
             } catch (DataIntegrityViolationException e) {

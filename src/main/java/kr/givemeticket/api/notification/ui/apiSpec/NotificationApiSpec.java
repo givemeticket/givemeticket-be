@@ -22,14 +22,21 @@ public interface NotificationApiSpec {
                     - 첫 페이지는 cursor 없이 부릅니다. 다음 페이지는 응답의 nextCursor 를 cursor 로 넘깁니다
                     - nextCursor 가 null 이면 마지막 페이지입니다
                     - size 는 기본 20, 최대 50 입니다. 벗어나면 400 INVALID_PAGE_SIZE
-                    - type 별 문구
-                      - CAMPAIGN_CHANGED: 행사 정보가 바뀌었습니다. changes 에 항목별 before/after 가 있습니다.
-                        field 는 TITLE / EVENT_AT / EVENT_END_AT / LOCATION / ADDRESS 이고,
-                        EVENT_AT·EVENT_END_AT 의 값은 UTC 시각 문자열(Z)입니다
-                      - CAMPAIGN_DELETED: 행사가 삭제되어 신청이 취소됐습니다
-                      - APPLICATION_CANCELLED: 주최자가 내 신청을 취소했습니다. 행사는 그대로 있습니다
-                      - EVENT_REMINDER: 행사가 24시간 안에 시작합니다. eventAt 이 시작 일시입니다
-                      - WISHED_CAMPAIGN_OPENED: 찜한 행사의 신청이 열렸습니다. 이미 신청한 사람에게는 가지 않습니다
+                    - type 별 문구와 받는 사람
+                      - CAMPAIGN_CHANGED (신청자·찜한 사람): 행사 정보가 바뀌었습니다. changes 에 항목별
+                        before/after 가 있습니다. field 는 TITLE / OPEN_AT / EVENT_AT / EVENT_END_AT /
+                        LOCATION / ADDRESS 이고, 시각 항목의 값은 UTC 시각 문자열(Z)입니다.
+                        EVENT_AT 이하 넷은 주최자가 안내 정보(detail)를 적은 행사에서만 나옵니다
+                      - CAMPAIGN_DELETED (신청자): 행사가 삭제되어 신청이 취소됐습니다
+                      - CAMPAIGN_CLOSED (신청자): 주최자가 행사를 종료했습니다. closedAt 이 종료 시각입니다.
+                        확정된 신청은 그대로 유효합니다
+                      - APPLICATION_CANCELLED (그 신청자): 주최자가 내 신청을 취소했습니다. 행사는 그대로 있습니다
+                      - EVENT_REMINDER (신청자): 행사가 24시간 안에 시작합니다. eventAt 이 시작 일시입니다.
+                        주최자가 행사 일시(detail.eventAt)를 적은 행사에만 나갑니다
+                      - WISHED_CAMPAIGN_OPENING_SOON (찜한 사람): 신청이 10분 안에 열립니다. openAt 이 오픈 시각입니다
+                      - WISHED_CAMPAIGN_OPENED (찜한 사람): 신청이 열렸습니다
+                      - 찜한 사람 대상 알림은 이미 신청한 사람에게는 가지 않습니다. 주최자 본인에게는 어떤 알림도 가지 않습니다
+                    - ownerNickname 은 알림이 만들어질 때의 주최자 닉네임입니다. 이 필드가 생기기 전 알림이면 null 입니다
                     - campaignTitle 은 알림이 만들어질 때의 제목입니다. 이후에 바뀌어도 그대로 남습니다
                     - 알림은 90일 동안 보관됩니다
                     """)

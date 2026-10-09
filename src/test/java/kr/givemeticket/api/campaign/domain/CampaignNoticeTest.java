@@ -17,16 +17,16 @@ class CampaignNoticeTest {
     @Test
     @DisplayName("같은 값이면 변경이 없다")
     void noChangeForSameValues() {
-        CampaignNotice notice = new CampaignNotice("행사", EVENT_AT, null, "A홀", "서울시");
+        CampaignNotice notice = new CampaignNotice("행사", null, EVENT_AT, null, "A홀", "서울시");
 
-        assertThat(notice.diff(new CampaignNotice("행사", EVENT_AT, null, "A홀", "서울시"))).isEmpty();
+        assertThat(notice.diff(new CampaignNotice("행사", null, EVENT_AT, null, "A홀", "서울시"))).isEmpty();
     }
 
     @Test
     @DisplayName("일시는 UTC 문자열(Z)로 담긴다")
     void formatsDateTimeAsUtc() {
-        CampaignNotice before = new CampaignNotice("행사", EVENT_AT, null, null, null);
-        CampaignNotice after = new CampaignNotice("행사", EVENT_AT.plusHours(2), null, null, null);
+        CampaignNotice before = new CampaignNotice("행사", null, EVENT_AT, null, null, null);
+        CampaignNotice after = new CampaignNotice("행사", null, EVENT_AT.plusHours(2), null, null, null);
 
         assertThat(before.diff(after)).containsExactly(new CampaignChange(
                 Field.EVENT_AT, "2026-10-10T10:00:00Z", "2026-10-10T12:00:00Z"));
@@ -35,12 +35,22 @@ class CampaignNoticeTest {
     @Test
     @DisplayName("값을 지우면 after 가 null 이다")
     void reportsClearedValue() {
-        CampaignNotice before = new CampaignNotice("행사", null, null, "A홀", "서울시");
-        CampaignNotice after = new CampaignNotice("행사", null, null, null, null);
+        CampaignNotice before = new CampaignNotice("행사", null, null, null, "A홀", "서울시");
+        CampaignNotice after = new CampaignNotice("행사", null, null, null, null, null);
 
         assertThat(before.diff(after)).containsExactly(
                 new CampaignChange(Field.LOCATION, "A홀", null),
                 new CampaignChange(Field.ADDRESS, "서울시", null));
+    }
+
+    @Test
+    @DisplayName("오픈 시각이 바뀌면 OPEN_AT 으로 담긴다 — 오픈을 기다리는 찜한 사람이 알아야 한다")
+    void reportsOpenAtChange() {
+        CampaignNotice before = new CampaignNotice("행사", EVENT_AT, null, null, null, null);
+        CampaignNotice after = new CampaignNotice("행사", EVENT_AT.plusDays(1), null, null, null, null);
+
+        assertThat(before.diff(after)).containsExactly(new CampaignChange(
+                Field.OPEN_AT, "2026-10-10T10:00:00Z", "2026-10-11T10:00:00Z"));
     }
 
     @Test

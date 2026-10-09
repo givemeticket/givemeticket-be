@@ -14,12 +14,12 @@ class LikeEscapeTest {
     @Test
     @DisplayName("와일드카드와 이스케이프 문자를 글자로 바꾼다")
     void escapesWildcards() {
-        assertThat(JpaCampaignRepository.escapeLike("100%_할인!")).isEqualTo("100!%!_할인!!");
+        assertThat(CampaignSearchQuery.escapeLike("100%_할인!")).isEqualTo("100!%!_할인!!");
     }
 
     @Test
     @DisplayName("평범한 검색어는 그대로다")
     void keepsPlainKeyword() {
-        assertThat(JpaCampaignRepository.escapeLike("IU 콘서트")).isEqualTo("IU 콘서트");
+        assertThat(CampaignSearchQuery.escapeLike("IU 콘서트")).isEqualTo("IU 콘서트");
     }
 }

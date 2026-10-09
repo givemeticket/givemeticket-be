@@ -7,7 +7,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import kr.givemeticket.api.campaign.domain.Campaign;
+import kr.givemeticket.api.campaign.domain.CampaignCursor;
 import kr.givemeticket.api.campaign.domain.CampaignRepository;
+import kr.givemeticket.api.campaign.domain.CampaignSearchCondition;
 import kr.givemeticket.api.campaign.domain.CampaignStatus;
 
 /**
@@ -74,8 +76,22 @@ class FakeCampaignRepository implements CampaignRepository {
     }
 
     @Override
-    public List<Campaign> searchLiveByTitle(String keyword, Long cursor, int limit) {
+    public List<Campaign> search(CampaignSearchCondition condition, CampaignCursor cursor, int limit) {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public long count(CampaignSearchCondition condition) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** 실제 쿼리와 같은 규칙: 오픈 전이고 오픈 시각이 (from, to]. */
+    @Override
+    public List<Campaign> findAllScheduledByOpenAtBetween(LocalDateTime from, LocalDateTime to) {
+        return campaigns.values().stream()
+                .filter(Campaign::isScheduled)
+                .filter(campaign -> campaign.getOpenAt().isAfter(from) && !campaign.getOpenAt().isAfter(to))
+                .toList();
     }
 
     @Override
