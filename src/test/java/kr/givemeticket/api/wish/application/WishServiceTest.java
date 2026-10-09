@@ -13,7 +13,9 @@ import java.util.Map;
 import java.util.Optional;
 import kr.givemeticket.api.campaign.application.CampaignApplicationException;
 import kr.givemeticket.api.campaign.domain.Campaign;
+import kr.givemeticket.api.campaign.domain.CampaignCursor;
 import kr.givemeticket.api.campaign.domain.CampaignRepository;
+import kr.givemeticket.api.campaign.domain.CampaignSearchCondition;
 import kr.givemeticket.api.campaign.domain.CampaignStatus;
 import kr.givemeticket.api.campaign.domain.CampaignType;
 import kr.givemeticket.api.wish.application.dto.response.WishStatusResponse;
@@ -244,7 +246,17 @@ class WishServiceTest {
         }
 
         @Override
-        public List<Campaign> searchLiveByTitle(String keyword, Long cursor, int limit) {
+        public List<Campaign> search(CampaignSearchCondition condition, CampaignCursor cursor, int limit) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long count(CampaignSearchCondition condition) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public List<Campaign> findAllScheduledByOpenAtBetween(LocalDateTime from, LocalDateTime to) {
             throw new UnsupportedOperationException();
         }
 

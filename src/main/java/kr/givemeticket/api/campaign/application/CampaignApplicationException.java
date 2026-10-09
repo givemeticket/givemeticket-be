@@ -100,7 +100,27 @@ public class CampaignApplicationException extends BusinessException {
 
     public static CampaignApplicationException invalidKeyword(int maxLength) {
         return new CampaignApplicationException(HttpStatus.BAD_REQUEST, "INVALID_KEYWORD",
-                "검색어는 1자 이상 " + maxLength + "자 이하여야 합니다.");
+                "검색어는 " + maxLength + "자 이하여야 합니다.");
+    }
+
+    public static CampaignApplicationException invalidStatusFilter() {
+        return new CampaignApplicationException(HttpStatus.BAD_REQUEST, "INVALID_STATUS",
+                "status는 OPEN, SCHEDULED, CLOSED 중에서 고를 수 있습니다.");
+    }
+
+    public static CampaignApplicationException invalidSort() {
+        return new CampaignApplicationException(HttpStatus.BAD_REQUEST, "INVALID_SORT",
+                "sort는 openAt,asc 또는 openAt,desc여야 합니다.");
+    }
+
+    public static CampaignApplicationException invalidOpenDate() {
+        return new CampaignApplicationException(HttpStatus.BAD_REQUEST, "INVALID_OPEN_DATE",
+                "openFrom·openTo는 YYYY-MM-DD 형식이고, openFrom이 openTo보다 늦을 수 없습니다.");
+    }
+
+    public static CampaignApplicationException invalidCursor() {
+        return new CampaignApplicationException(HttpStatus.BAD_REQUEST, "INVALID_CURSOR",
+                "cursor는 이전 응답의 nextCursor를 그대로 넘겨야 합니다. 정렬을 바꿨다면 첫 페이지부터 다시 부르세요.");
     }
 
     public static CampaignApplicationException invalidPageSize(int max) {

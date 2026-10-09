@@ -2,6 +2,7 @@ package kr.givemeticket.api.notification.application;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -57,7 +58,7 @@ public class NotificationFanOut {
 
         LocalDateTime now = LocalDateTime.now();
         if (isStaleReminder(outbox, now)) {
-            // 서버가 오래 내려가 있었던 경우다. 이미 시작한 행사에 "곧 시작합니다"를 보내지 않는다.
+            // 서버가 오래 내려가 있었던 경우다. 이미 지난 일에 "곧 ~합니다"를 보내지 않는다.
             log.info("stale reminder skipped: outboxId={}, campaignId={}",
                     outbox.getId(), outbox.getCampaignId());
             outbox.markProcessed(now);
@@ -91,14 +92,31 @@ public class NotificationFanOut {
                 .map(Campaign::getOwnerId)
                 .orElse(null);
 
-        List<Long> candidates = (outbox.getType() == NotificationType.WISHED_CAMPAIGN_OPENED)
-                ? wishersNotYetApplied(outbox.getCampaignId())
-                : applicantsOf(outbox).stream().map(Application::getUserId).toList();
+        List<Long> candidates = switch (outbox.getType()) {
+            case WISHED_CAMPAIGN_OPENED, WISHED_CAMPAIGN_OPENING_SOON ->
+                    wishersNotYetApplied(outbox.getCampaignId());
+            case CAMPAIGN_CHANGED -> applicantsAndWishers(outbox.getCampaignId());
+            default -> applicantsOf(outbox).stream().map(Application::getUserId).toList();
+        };
 
         return candidates.stream()
                 .filter(userId -> !Objects.equals(userId, ownerId))
                 .distinct()
                 .toList();
+    }
+
+    /**
+     * 변경 알림은 신청자와 찜한 사람 모두에게 간다. 오픈 시각이 바뀌면 오픈을 기다리는 찜한 사람이
+     * 알아야 하고, 장소·일시는 신청자가 알아야 한다. 어느 항목이 바뀌었든 둘 다에게 보낸다 — 찜한
+     * 사람에게 장소 변경이 가도 해가 없고, 항목별로 받는 사람을 나누면 규칙만 늘어난다.
+     */
+    private List<Long> applicantsAndWishers(Long campaignId) {
+        List<Long> recipients = new ArrayList<>(applicationRepository
+                .findAllByCampaignIdAndStatusIn(campaignId, ApplicationStatus.active()).stream()
+                .map(Application::getUserId)
+                .toList());
+        recipients.addAll(wishRepository.findUserIdsByCampaignId(campaignId));
+        return recipients;
     }
 
     /**
@@ -134,11 +152,16 @@ public class NotificationFanOut {
                 outbox.getCampaignId(), ApplicationStatus.active());
     }
 
+    /**
+     * 시각을 앞두고 보내는 알림인데 그 시각이 이미 지났다. 임박 알림은 행사 시작, 오픈 임박 알림은
+     * 오픈이 기준이다. 오픈이 지났으면 오픈 알림이 따로 간다.
+     */
     private static boolean isStaleReminder(NotificationOutbox outbox, LocalDateTime now) {
-        if (outbox.getType() != NotificationType.EVENT_REMINDER) {
-            return false;
-        }
-        String eventAt = outbox.getPayload().eventAt();
-        return eventAt != null && !Instant.parse(eventAt).isAfter(Utc.toInstant(now));
+        String dueAt = switch (outbox.getType()) {
+            case EVENT_REMINDER -> outbox.getPayload().eventAt();
+            case WISHED_CAMPAIGN_OPENING_SOON -> outbox.getPayload().openAt();
+            default -> null;
+        };
+        return dueAt != null && !Instant.parse(dueAt).isAfter(Utc.toInstant(now));
     }
 }

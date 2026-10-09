@@ -2,9 +2,11 @@ package kr.givemeticket.api.campaign.ui.apiSpec;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.util.List;
 import kr.givemeticket.api.campaign.ui.dto.request.PatchCampaignRequest;
 import kr.givemeticket.api.campaign.ui.dto.request.PostCampaignRequest;
 import kr.givemeticket.api.campaign.ui.dto.response.CloseCampaignResponse;
@@ -14,6 +16,7 @@ import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignStockResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignsResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.PatchCampaignResponse;
+import kr.givemeticket.api.campaign.ui.dto.response.SearchCampaignsResponse;
 import kr.givemeticket.api.global.auth.annotation.LoginUserId;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -93,23 +96,59 @@ public interface CampaignApiSpec {
             @RequestParam("scope") String scope
     );
 
-    @Operation(summary = "캠페인 제목 검색",
+    @Operation(summary = "캠페인 검색",
             description = """
-                    제목에 검색어가 들어간 행사를 최신순으로 내려줍니다. 로그인하지 않아도 됩니다.
+                    검색어와 필터로 행사를 찾습니다. 로그인하지 않아도 됩니다. 삭제된 행사는 나오지 않습니다.
 
-                    - 검색어는 앞뒤 공백을 떼고 1~100자여야 합니다. 벗어나면 400 INVALID_KEYWORD
+                    검색어
+                    - keyword 는 선택입니다. 비우면 제목 조건 없이 필터만으로 찾습니다.
+                      아무 조건도 주지 않으면 삭제되지 않은 행사 전체가 나옵니다
+                    - 앞뒤 공백은 떼고, 100자를 넘으면 400 INVALID_KEYWORD
                     - 대소문자를 구분하지 않습니다. %, _ 도 와일드카드가 아니라 글자로 찾습니다
-                    - 삭제된 행사는 나오지 않습니다. 오픈 전·진행 중·종료된 행사는 모두 나옵니다
-                    - 첫 페이지는 cursor 없이 부릅니다. 다음 페이지는 응답의 nextCursor 를 cursor 로 넘기고,
-                      nextCursor 가 null 이면 마지막 페이지입니다
+
+                    상태 칩 (status, soldOut)
+                    - status 는 OPEN·SCHEDULED·CLOSED 를 여러 개 고를 수 있습니다(status=OPEN&status=SCHEDULED).
+                      그 밖의 값은 400 INVALID_STATUS
+                    - soldOut=true 는 매진 칩입니다
+                    - 고른 칩끼리는 OR 입니다. 하나도 고르지 않으면 상태 조건이 없습니다
+                    - 진행중(OPEN)과 매진은 겹치지 않습니다. status=OPEN 은 매진된 행사를 빼고,
+                      soldOut=true 는 진행 중이면서 매진된 행사만 냅니다. 종료(CLOSED)된 행사는 매진이었어도
+                      종료로만 셉니다
+                    - 매진은 확정된 신청 수로 판단합니다. 방금 잡힌 자리는 1초 안팎 늦게 반영될 수 있고,
+                      그 사이에는 카드의 soldOut(실시간 재고)과 칩 결과가 잠깐 어긋날 수 있습니다
+
+                    오픈 날짜 (openFrom, openTo)
+                    - YYYY-MM-DD, 한국 시간 기준이고 양 끝 날짜를 포함합니다. 둘 다 선택입니다
+                    - 형식이 틀리거나 openFrom 이 openTo 보다 늦으면 400 INVALID_OPEN_DATE
+
+                    정렬과 페이징
+                    - sort 는 openAt,asc / openAt,desc 입니다. 비우면 최근에 만든 행사부터입니다.
+                      그 밖의 값은 400 INVALID_SORT
+                    - 첫 페이지는 cursor 없이 부르고, 다음 페이지는 응답의 nextCursor 를 그대로 넘깁니다.
+                      nextCursor 는 문자열이고 정렬마다 모양이 다르니 해석하지 마세요. null 이면 마지막 페이지입니다
+                    - 정렬을 바꾸면 첫 페이지부터 다시 부르세요. 다른 정렬의 커서는 400 INVALID_CURSOR 일 수 있습니다
                     - size 는 기본 20, 최대 50 입니다. 벗어나면 400 INVALID_PAGE_SIZE
-                    - 카드 모양은 GET /campaigns 와 같습니다. myApplicationStatus/myAppliedAt 은 null 입니다
+                    - totalCount 는 필터를 적용한 전체 건수입니다. 커서와 상관없이 같은 값입니다
+
+                    카드 모양은 GET /campaigns 와 같습니다. myApplicationStatus/myAppliedAt 은 null 입니다
                     """)
-    ResponseEntity<GetCampaignPageResponse> searchCampaigns(
-            @Parameter(description = "검색어", example = "콘서트")
-            @RequestParam("keyword") String keyword,
-            @Parameter(description = "이전 응답의 nextCursor. 첫 페이지면 비웁니다", example = "120")
-            @RequestParam(value = "cursor", required = false) Long cursor,
+    ResponseEntity<SearchCampaignsResponse> searchCampaigns(
+            @Parameter(description = "검색어. 선택", example = "콘서트")
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @Parameter(description = "상태 칩. 여러 개 가능",
+                    array = @ArraySchema(schema = @Schema(allowableValues = {"OPEN", "SCHEDULED", "CLOSED"})))
+            @RequestParam(value = "status", required = false) List<String> statuses,
+            @Parameter(description = "매진 칩", example = "true")
+            @RequestParam(value = "soldOut", required = false) Boolean soldOut,
+            @Parameter(description = "오픈 날짜 시작(포함). YYYY-MM-DD, 한국 시간", example = "2026-10-01")
+            @RequestParam(value = "openFrom", required = false) String openFrom,
+            @Parameter(description = "오픈 날짜 끝(포함). YYYY-MM-DD, 한국 시간", example = "2026-10-31")
+            @RequestParam(value = "openTo", required = false) String openTo,
+            @Parameter(description = "정렬. 비우면 최신순",
+                    schema = @Schema(allowableValues = {"openAt,asc", "openAt,desc"}))
+            @RequestParam(value = "sort", required = false) String sort,
+            @Parameter(description = "이전 응답의 nextCursor. 첫 페이지면 비웁니다")
+            @RequestParam(value = "cursor", required = false) String cursor,
             @Parameter(description = "페이지 크기. 기본 20, 최대 50", example = "20")
             @RequestParam(value = "size", required = false) Integer size
     );

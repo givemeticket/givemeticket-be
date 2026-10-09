@@ -9,6 +9,7 @@ import kr.givemeticket.api.campaign.domain.CampaignStatus;
 import kr.givemeticket.api.campaign.domain.CampaignType;
 import kr.givemeticket.api.notification.domain.NotificationOutbox;
 import kr.givemeticket.api.notification.domain.NotificationType;
+import kr.givemeticket.api.user.application.UserService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -21,9 +22,11 @@ class EventReminderSchedulerTest {
     private static final Long CAMPAIGN_ID = 1L;
 
     private final FakeCampaignRepository campaignRepository = new FakeCampaignRepository();
+    private final FakeUserRepository userRepository = new FakeUserRepository();
     private final FakeNotificationOutboxRepository outboxRepository = new FakeNotificationOutboxRepository();
     private final EventReminderScheduler scheduler =
-            new EventReminderScheduler(campaignRepository, outboxRepository);
+            new EventReminderScheduler(campaignRepository, outboxRepository,
+                    new NotificationPayloads(campaignRepository, new UserService(userRepository, null)));
 
     @Test
     @DisplayName("하루 안에 시작하는 행사는 원본이 한 번만 생긴다")
@@ -36,6 +39,7 @@ class EventReminderSchedulerTest {
         assertThat(outboxRepository.rows).singleElement().satisfies(outbox -> {
             assertThat(outbox.getType()).isEqualTo(NotificationType.EVENT_REMINDER);
             assertThat(outbox.getCampaignId()).isEqualTo(campaign.getId());
+            assertThat(outbox.getPayload().ownerNickname()).isEqualTo("주최자");
         });
     }
 
@@ -75,6 +79,7 @@ class EventReminderSchedulerTest {
     }
 
     private Campaign givenCampaign(LocalDateTime eventAt) {
+        userRepository.put(10L, "주최자");
         Campaign campaign = new Campaign(
                 10L, "code", "행사", CampaignType.TICKET, 10,
                 LocalDateTime.now().minusDays(1), detail(eventAt));

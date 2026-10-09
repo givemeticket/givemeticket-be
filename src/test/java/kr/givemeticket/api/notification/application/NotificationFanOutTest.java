@@ -154,6 +154,55 @@ class NotificationFanOutTest {
         assertThat(notificationRepository.rows).extracting(Notification::getUserId).containsExactly(7L);
     }
 
+    @Test
+    @DisplayName("변경 알림은 신청자와 찜한 사람 모두에게 한 번씩 간다")
+    void changedGoesToApplicantsAndWishers() {
+        givenCampaign();
+        givenApplication(101L, 7L, ApplicationStatus.CONFIRMED, null);
+        wishRepository.put(7L, CAMPAIGN_ID);
+        wishRepository.put(8L, CAMPAIGN_ID);
+        wishRepository.put(OWNER_ID, CAMPAIGN_ID);
+        givenOutbox(NotificationType.CAMPAIGN_CHANGED, null, null);
+
+        fanOut.fanOutNext();
+
+        assertThat(notificationRepository.rows).extracting(Notification::getUserId)
+                .containsExactlyInAnyOrder(7L, 8L);
+    }
+
+    @Test
+    @DisplayName("종료 알림은 확정 신청자에게만 간다 — 찜한 사람은 받지 않는다")
+    void closedGoesToConfirmedApplicantsOnly() {
+        givenCampaign();
+        givenApplication(101L, 7L, ApplicationStatus.CONFIRMED, null);
+        givenApplication(102L, 8L, ApplicationStatus.CANCELLED, null);
+        wishRepository.put(9L, CAMPAIGN_ID);
+        givenOutbox(NotificationType.CAMPAIGN_CLOSED, null, null);
+
+        fanOut.fanOutNext();
+
+        assertThat(notificationRepository.rows).extracting(Notification::getUserId).containsExactly(7L);
+    }
+
+    @Test
+    @DisplayName("오픈 임박 알림은 찜한 사람에게 가고, 오픈이 이미 지났으면 보내지 않는다")
+    void openingSoonGoesToWishersUntilOpen() {
+        givenCampaign();
+        wishRepository.put(7L, CAMPAIGN_ID);
+        String upcoming = Utc.toInstant(LocalDateTime.now().plusMinutes(5)).toString();
+        String past = Utc.toInstant(LocalDateTime.now().minusMinutes(1)).toString();
+        givenOutbox(NotificationType.WISHED_CAMPAIGN_OPENING_SOON, past, "opening-soon:1:" + past);
+        givenOutbox(NotificationType.WISHED_CAMPAIGN_OPENING_SOON, upcoming, "opening-soon:1:" + upcoming);
+
+        fanOut.fanOutNext();
+        fanOut.fanOutNext();
+
+        assertThat(notificationRepository.rows).singleElement().satisfies(notification -> {
+            assertThat(notification.getUserId()).isEqualTo(7L);
+            assertThat(notification.getPayload().openAt()).isEqualTo(upcoming);
+        });
+    }
+
     private void givenCampaign() {
         Campaign campaign = new Campaign(
                 OWNER_ID, "code", "행사", CampaignType.TICKET, 10, BASE, null);
@@ -169,10 +218,14 @@ class NotificationFanOutTest {
         applicationRepository.put(application);
     }
 
-    private NotificationOutbox givenOutbox(NotificationType type, String eventAt, String dedupeKey) {
-        return outboxRepository.save(new NotificationOutbox(
-                CAMPAIGN_ID, type,
-                new NotificationPayload("행사", "code", List.of(), eventAt),
-                dedupeKey));
+    /** @param dueAt 임박 알림의 기준 시각(UTC). 임박 알림이 아니면 null */
+    private NotificationOutbox givenOutbox(NotificationType type, String dueAt, String dedupeKey) {
+        NotificationPayload payload = NotificationPayload.of("행사", "code", "주최자");
+        payload = switch (type) {
+            case EVENT_REMINDER -> payload.withEventAt(dueAt);
+            case WISHED_CAMPAIGN_OPENING_SOON -> payload.withOpenAt(dueAt);
+            default -> payload;
+        };
+        return outboxRepository.save(new NotificationOutbox(CAMPAIGN_ID, type, payload, dedupeKey));
     }
 }

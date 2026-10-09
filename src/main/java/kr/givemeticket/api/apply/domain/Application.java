@@ -26,7 +26,10 @@ import org.hibernate.type.SqlTypes;
         indexes = {
                 // 주최자의 신청자 목록이 캠페인 하나를 신청 순서대로 훑는다.
                 @Index(name = "idx_application_campaign_applied_at",
-                        columnList = "campaign_id, applied_at")
+                        columnList = "campaign_id, applied_at"),
+                // 검색의 매진 판정이 행사마다 확정 신청 수를 센다. 행을 읽지 않고 인덱스만으로 센다.
+                @Index(name = "idx_application_campaign_status",
+                        columnList = "campaign_id, status")
         })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Application extends BaseTimeEntity {

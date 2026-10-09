@@ -2,8 +2,10 @@ package kr.givemeticket.api.campaign.ui;
 
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.util.List;
 import kr.givemeticket.api.campaign.application.CampaignService;
 import kr.givemeticket.api.campaign.application.dto.CampaignScope;
+import kr.givemeticket.api.campaign.application.dto.request.CampaignSearchRequest;
 import kr.givemeticket.api.campaign.ui.apiSpec.CampaignApiSpec;
 import kr.givemeticket.api.campaign.ui.dto.request.PatchCampaignRequest;
 import kr.givemeticket.api.campaign.ui.dto.request.PostCampaignRequest;
@@ -14,6 +16,7 @@ import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignStockResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignsResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.PatchCampaignResponse;
+import kr.givemeticket.api.campaign.ui.dto.response.SearchCampaignsResponse;
 import kr.givemeticket.api.global.log.BusinessLogging;
 import kr.givemeticket.api.global.auth.annotation.LoginUserId;
 import lombok.RequiredArgsConstructor;
@@ -88,13 +91,18 @@ public class CampaignController implements CampaignApiSpec {
 
     @Override
     @GetMapping("campaigns/search")
-    public ResponseEntity<GetCampaignPageResponse> searchCampaigns(
-            @RequestParam("keyword") String keyword,
-            @RequestParam(value = "cursor", required = false) Long cursor,
+    public ResponseEntity<SearchCampaignsResponse> searchCampaigns(
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "status", required = false) List<String> statuses,
+            @RequestParam(value = "soldOut", required = false) Boolean soldOut,
+            @RequestParam(value = "openFrom", required = false) String openFrom,
+            @RequestParam(value = "openTo", required = false) String openTo,
+            @RequestParam(value = "sort", required = false) String sort,
+            @RequestParam(value = "cursor", required = false) String cursor,
             @RequestParam(value = "size", required = false) Integer size
     ) {
-        return ResponseEntity.ok(GetCampaignPageResponse.from(
-                campaignService.searchByTitle(keyword, cursor, size)));
+        return ResponseEntity.ok(SearchCampaignsResponse.from(campaignService.search(
+                new CampaignSearchRequest(keyword, statuses, soldOut, openFrom, openTo, sort, cursor, size))));
     }
 
     @Override

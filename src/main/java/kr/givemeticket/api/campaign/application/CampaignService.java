@@ -1,8 +1,14 @@
 package kr.givemeticket.api.campaign.application;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -16,20 +22,26 @@ import kr.givemeticket.api.apply.domain.ApplicationStatus;
 import kr.givemeticket.api.apply.domain.FailureReason;
 import kr.givemeticket.api.campaign.application.dto.CampaignDetailCommand;
 import kr.givemeticket.api.campaign.application.dto.request.CampaignCreateRequest;
+import kr.givemeticket.api.campaign.application.dto.request.CampaignSearchRequest;
 import kr.givemeticket.api.campaign.application.dto.request.CampaignUpdateRequest;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignDetailResponse;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignOwnerInfo;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignPageResponse;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignResponse;
+import kr.givemeticket.api.campaign.application.dto.response.CampaignSearchResponse;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignStockResponse;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignSummaryResponse;
 import kr.givemeticket.api.campaign.domain.Campaign;
 import kr.givemeticket.api.campaign.domain.CampaignCacheRepository;
 import kr.givemeticket.api.campaign.domain.CampaignChange;
 import kr.givemeticket.api.campaign.domain.CampaignChangedEvent;
+import kr.givemeticket.api.campaign.domain.CampaignClosedEvent;
+import kr.givemeticket.api.campaign.domain.CampaignCursor;
 import kr.givemeticket.api.campaign.domain.CampaignNotice;
 import kr.givemeticket.api.campaign.domain.CampaignRepository;
+import kr.givemeticket.api.campaign.domain.CampaignSearchCondition;
 import kr.givemeticket.api.campaign.domain.CampaignSnapshot;
+import kr.givemeticket.api.campaign.domain.CampaignSort;
 import kr.givemeticket.api.campaign.domain.CampaignState;
 import kr.givemeticket.api.campaign.domain.CampaignStateRepository;
 import kr.givemeticket.api.campaign.domain.CampaignStatus;
@@ -57,6 +69,14 @@ public class CampaignService {
     public static final int DEFAULT_PAGE_SIZE = 20;
     public static final int MAX_PAGE_SIZE = 50;
     public static final int KEYWORD_MAX_LENGTH = 100;
+
+    /** 날짜 필터는 화면 기준(한국 시간)으로 받는다. 저장된 시각은 UTC 다. */
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+
+    private static final Map<String, CampaignStatus> SEARCHABLE_STATUSES = Map.of(
+            "OPEN", CampaignStatus.OPEN,
+            "SCHEDULED", CampaignStatus.SCHEDULED,
+            "CLOSED", CampaignStatus.CLOSED);
     private static final Set<ApplicationStatus> CONFIRMED_ONLY = Set.of(ApplicationStatus.CONFIRMED);
 
     /**
@@ -208,19 +228,100 @@ public class CampaignService {
     }
 
     /**
-     * 제목으로 찾는다. 로그인하지 않아도 된다. 삭제된 행사는 나오지 않는다.
+     * 행사를 찾는다. 로그인하지 않아도 된다. 삭제된 행사는 나오지 않는다.
      *
-     * @param keyword 앞뒤 공백은 떼고 찾는다
+     * <p>검색어도 필터도 모두 선택이다. 아무것도 주지 않으면 삭제되지 않은 행사 전체가 나온다.
+     * 필터만 고르고 검색어를 비운 검색이 화면에 있어서다.
+     *
+     * <p>전체 건수는 페이지마다 다시 센다. 조회 사이에 행사가 늘거나 상태가 바뀌면 값이 달라질 수 있다.
      */
     @Transactional(readOnly = true)
-    public CampaignPageResponse searchByTitle(String keyword, Long cursor, Integer size) {
-        String trimmed = (keyword == null) ? "" : keyword.trim();
-        if (trimmed.isEmpty() || trimmed.length() > KEYWORD_MAX_LENGTH) {
+    public CampaignSearchResponse search(CampaignSearchRequest request) {
+        CampaignSort sort = parseSort(request.sort());
+        CampaignSearchCondition condition = new CampaignSearchCondition(
+                parseKeyword(request.keyword()),
+                parseStatuses(request.statuses()),
+                Boolean.TRUE.equals(request.soldOut()),
+                startOfKstDay(request.openFrom(), 0),
+                startOfKstDay(request.openTo(), 1),
+                sort);
+        if (condition.openFrom() != null && condition.openTo() != null
+                && !condition.openFrom().isBefore(condition.openTo())) {
+            throw CampaignApplicationException.invalidOpenDate();
+        }
+        int pageSize = pageSize(request.size());
+        CampaignCursor cursor = CampaignSearchCursors.decode(request.cursor(), sort);
+
+        List<Campaign> rows = campaignRepository.search(condition, cursor, pageSize + 1);
+        boolean hasNext = rows.size() > pageSize;
+        List<Campaign> page = hasNext ? rows.subList(0, pageSize) : rows;
+
+        return new CampaignSearchResponse(
+                toSummaries(page, Map.of()),
+                hasNext ? CampaignSearchCursors.encode(CampaignCursor.after(page.getLast(), sort), sort) : null,
+                campaignRepository.count(condition));
+    }
+
+    /** 앞뒤 공백은 뗀다. 비어 있으면 제목 조건이 없는 것이다. */
+    private static String parseKeyword(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return null;
+        }
+        String trimmed = keyword.trim();
+        if (trimmed.length() > KEYWORD_MAX_LENGTH) {
             throw CampaignApplicationException.invalidKeyword(KEYWORD_MAX_LENGTH);
         }
-        int pageSize = pageSize(size);
+        return trimmed;
+    }
 
-        return toPage(campaignRepository.searchLiveByTitle(trimmed, cursor, pageSize + 1), pageSize);
+    /** DELETED 는 고를 수 없다. 검색에는 애초에 나오지 않는다. */
+    private static Set<CampaignStatus> parseStatuses(List<String> values) {
+        if (values == null) {
+            return Set.of();
+        }
+        Set<CampaignStatus> statuses = new HashSet<>();
+        for (String value : values) {
+            if (value == null || value.isBlank()) {
+                continue;
+            }
+            CampaignStatus status = SEARCHABLE_STATUSES.get(value.trim().toUpperCase(Locale.ROOT));
+            if (status == null) {
+                throw CampaignApplicationException.invalidStatusFilter();
+            }
+            statuses.add(status);
+        }
+        return statuses;
+    }
+
+    private static CampaignSort parseSort(String sort) {
+        if (sort == null || sort.isBlank()) {
+            return CampaignSort.LATEST;
+        }
+        return switch (sort.replace(" ", "").toLowerCase(Locale.ROOT)) {
+            case "openat,asc" -> CampaignSort.OPEN_AT_ASC;
+            case "openat,desc" -> CampaignSort.OPEN_AT_DESC;
+            default -> throw CampaignApplicationException.invalidSort();
+        };
+    }
+
+    /**
+     * 한국 시간 날짜를 저장 기준(UTC)의 시각으로 옮긴다. 상한은 다음 날 0시(미포함)로 잡아
+     * 그날 하루를 통째로 포함한다.
+     *
+     * @param plusDays 하한이면 0, 상한이면 1
+     */
+    private static LocalDateTime startOfKstDay(String date, int plusDays) {
+        if (date == null || date.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(date.trim()).plusDays(plusDays)
+                    .atStartOfDay(KST)
+                    .withZoneSameInstant(ZoneOffset.UTC)
+                    .toLocalDateTime();
+        } catch (DateTimeParseException e) {
+            throw CampaignApplicationException.invalidOpenDate();
+        }
     }
 
     /**
@@ -476,6 +577,8 @@ public class CampaignService {
 
         if (!campaign.isClosed()) {
             campaign.close();
+            // 신청자에게 종료를 알린다. 이미 종료된 행사를 다시 눌렀을 때는 알리지 않는다.
+            eventPublisher.publishEvent(new CampaignClosedEvent(campaignId, LocalDateTime.now()));
             log.info("campaign closed: campaignId={}, ownerId={}", campaignId, userId);
         }
         return CampaignResponse.of(campaign);

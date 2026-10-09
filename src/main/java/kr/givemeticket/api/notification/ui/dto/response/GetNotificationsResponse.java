@@ -16,8 +16,11 @@ public record GetNotificationsResponse(List<Item> notifications, Long nextCursor
     /**
      * @param campaignTitle 알림이 만들어질 때의 행사 제목. 이후 제목이 바뀌어도 그대로다
      * @param shortCode     행사 상세로 이동할 때 쓴다
+     * @param ownerNickname 알림이 만들어질 때의 주최자 닉네임. 이 필드가 생기기 전 알림이면 null
      * @param changes       CAMPAIGN_CHANGED 에서만 채워진다
      * @param eventAt       EVENT_REMINDER 에서만 채워진다. UTC
+     * @param openAt        WISHED_CAMPAIGN_OPENING_SOON 에서만 채워진다. UTC
+     * @param closedAt      CAMPAIGN_CLOSED 에서만 채워진다. UTC
      * @param createdAt     UTC
      */
     public record Item(
@@ -26,8 +29,11 @@ public record GetNotificationsResponse(List<Item> notifications, Long nextCursor
             NotificationType type,
             String campaignTitle,
             String shortCode,
+            String ownerNickname,
             List<NotificationPayload.Change> changes,
             Instant eventAt,
+            Instant openAt,
+            Instant closedAt,
             boolean read,
             Instant createdAt
     ) {
@@ -40,11 +46,18 @@ public record GetNotificationsResponse(List<Item> notifications, Long nextCursor
                     notification.type(),
                     payload.campaignTitle(),
                     payload.shortCode(),
+                    payload.ownerNickname(),
                     (payload.changes() == null) ? List.of() : payload.changes(),
-                    (payload.eventAt() == null) ? null : Instant.parse(payload.eventAt()),
+                    instantOrNull(payload.eventAt()),
+                    instantOrNull(payload.openAt()),
+                    instantOrNull(payload.closedAt()),
                     notification.read(),
                     Utc.toInstant(notification.createdAt()));
         }
+    }
+
+    private static Instant instantOrNull(String utc) {
+        return (utc == null) ? null : Instant.parse(utc);
     }
 
     public static GetNotificationsResponse from(NotificationPageResponse page) {

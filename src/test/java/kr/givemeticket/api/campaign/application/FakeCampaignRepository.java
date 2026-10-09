@@ -4,14 +4,20 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 import kr.givemeticket.api.campaign.domain.Campaign;
+import kr.givemeticket.api.campaign.domain.CampaignCursor;
 import kr.givemeticket.api.campaign.domain.CampaignRepository;
+import kr.givemeticket.api.campaign.domain.CampaignSearchCondition;
+import kr.givemeticket.api.campaign.domain.CampaignType;
 import kr.givemeticket.api.campaign.domain.CampaignStatus;
 
 /**
@@ -75,12 +81,63 @@ class FakeCampaignRepository implements CampaignRepository {
         throw new UnsupportedOperationException();
     }
 
-    /** 실제 쿼리와 같은 규칙: 대소문자 무시 부분 일치, 삭제 제외, id 역순, 커서 미만. */
+    /** 매진 판정은 확정 신청 수를 세는 대신 여기 심어 둔 id 로 대신한다. */
+    final Set<Long> soldOutIds = new HashSet<>();
+
+    /**
+     * 실제 쿼리와 같은 규칙: 삭제 제외, 제목 대소문자 무시 부분 일치, 오픈 시각 [from, to),
+     * 상태 칩 OR(진행중은 매진 제외), 정렬과 커서.
+     */
     @Override
-    public List<Campaign> searchLiveByTitle(String keyword, Long cursor, int limit) {
-        String needle = keyword.toLowerCase(Locale.ROOT);
-        return livePage(campaign -> campaign.getTitle().toLowerCase(Locale.ROOT).contains(needle),
-                cursor, limit);
+    public List<Campaign> search(CampaignSearchCondition condition, CampaignCursor cursor, int limit) {
+        Comparator<Campaign> order = switch (condition.sort()) {
+            case LATEST -> Comparator.comparing(Campaign::getId).reversed();
+            case OPEN_AT_ASC -> Comparator.comparing(Campaign::getOpenAt).thenComparing(Campaign::getId);
+            case OPEN_AT_DESC -> Comparator.comparing(Campaign::getOpenAt).thenComparing(Campaign::getId).reversed();
+        };
+        return matching(condition)
+                .filter(campaign -> cursor == null || order.compare(campaign, cursorCampaign(cursor)) > 0)
+                .sorted(order)
+                .limit(limit)
+                .toList();
+    }
+
+    @Override
+    public long count(CampaignSearchCondition condition) {
+        return matching(condition).count();
+    }
+
+    @Override
+    public List<Campaign> findAllScheduledByOpenAtBetween(LocalDateTime from, LocalDateTime to) {
+        throw new UnsupportedOperationException();
+    }
+
+    private Stream<Campaign> matching(CampaignSearchCondition condition) {
+        return campaigns.values().stream()
+                .filter(campaign -> !campaign.isDeleted())
+                .filter(campaign -> condition.keyword() == null || campaign.getTitle().toLowerCase(Locale.ROOT)
+                        .contains(condition.keyword().toLowerCase(Locale.ROOT)))
+                .filter(campaign -> condition.openFrom() == null
+                        || !campaign.getOpenAt().isBefore(condition.openFrom()))
+                .filter(campaign -> condition.openTo() == null || campaign.getOpenAt().isBefore(condition.openTo()))
+                .filter(campaign -> !condition.filtersState() || matchesChip(campaign, condition));
+    }
+
+    private boolean matchesChip(Campaign campaign, CampaignSearchCondition condition) {
+        boolean soldOut = soldOutIds.contains(campaign.getId());
+        return switch (campaign.getStatus()) {
+            case SCHEDULED -> condition.statuses().contains(CampaignStatus.SCHEDULED);
+            case CLOSED -> condition.statuses().contains(CampaignStatus.CLOSED);
+            case OPEN -> soldOut ? condition.soldOut() : condition.statuses().contains(CampaignStatus.OPEN);
+            case DELETED -> false;
+        };
+    }
+
+    /** 커서가 가리키는 자리를 비교용 캠페인으로 만든다. 정렬 기준값(id, openAt)만 의미가 있다. */
+    private static Campaign cursorCampaign(CampaignCursor cursor) {
+        Campaign marker = new Campaign(0L, "cursor", "cursor", CampaignType.TICKET, 1,
+                cursor.openAt() == null ? LocalDateTime.MIN : cursor.openAt(), null);
+        return TestEntities.with(marker, "id", cursor.id());
     }
 
     @Override

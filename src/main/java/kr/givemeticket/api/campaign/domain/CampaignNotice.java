@@ -15,6 +15,7 @@ import kr.givemeticket.api.global.time.Utc;
  */
 public record CampaignNotice(
         String title,
+        LocalDateTime openAt,
         LocalDateTime eventAt,
         LocalDateTime eventEndAt,
         String location,
@@ -24,10 +25,11 @@ public record CampaignNotice(
     public static CampaignNotice of(Campaign campaign) {
         CampaignDetail detail = campaign.getDetail();
         if (detail == null) {
-            return new CampaignNotice(campaign.getTitle(), null, null, null, null);
+            return new CampaignNotice(campaign.getTitle(), campaign.getOpenAt(), null, null, null, null);
         }
         return new CampaignNotice(
                 campaign.getTitle(),
+                campaign.getOpenAt(),
                 detail.getEventAt(),
                 detail.getEventEndAt(),
                 detail.getLocation(),
@@ -37,6 +39,7 @@ public record CampaignNotice(
     public List<CampaignChange> diff(CampaignNotice after) {
         List<CampaignChange> changes = new ArrayList<>();
         addIfChanged(changes, Field.TITLE, title, after.title);
+        addIfChanged(changes, Field.OPEN_AT, format(openAt), format(after.openAt));
         addIfChanged(changes, Field.EVENT_AT, format(eventAt), format(after.eventAt));
         addIfChanged(changes, Field.EVENT_END_AT, format(eventEndAt), format(after.eventEndAt));
         addIfChanged(changes, Field.LOCATION, location, after.location);

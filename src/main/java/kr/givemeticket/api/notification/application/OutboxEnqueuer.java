@@ -1,5 +1,6 @@
 package kr.givemeticket.api.notification.application;
 
+import java.util.function.Supplier;
 import kr.givemeticket.api.notification.domain.NotificationOutbox;
 import kr.givemeticket.api.notification.domain.NotificationOutboxRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,16 +25,18 @@ public class OutboxEnqueuer {
     private final NotificationOutboxRepository outboxRepository;
 
     /**
+     * 원본을 만드는 일(행사·주최자 조회)도 새 트랜잭션 안에서 한다. 이미 있는 키면 만들지도 않는다.
+     *
      * @return 새로 남겼으면 true. 같은 dedupe_key 의 원본이 이미 있으면 false
      * @throws org.springframework.dao.DataIntegrityViolationException 그 사이 다른 곳이 같은 키로
-     *         먼저 넣었거나, DB 제약에 막힌 경우
+     *         먼저 넣은 경우
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public boolean enqueueOnce(NotificationOutbox outbox) {
-        if (outboxRepository.existsByDedupeKey(outbox.getDedupeKey())) {
+    public boolean enqueueOnce(String dedupeKey, Supplier<NotificationOutbox> outbox) {
+        if (outboxRepository.existsByDedupeKey(dedupeKey)) {
             return false;
         }
-        outboxRepository.save(outbox);
+        outboxRepository.save(outbox.get());
         return true;
     }
 }
