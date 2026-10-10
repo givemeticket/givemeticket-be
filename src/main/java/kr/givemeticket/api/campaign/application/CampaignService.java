@@ -26,7 +26,6 @@ import kr.givemeticket.api.campaign.application.dto.request.CampaignSearchReques
 import kr.givemeticket.api.campaign.application.dto.request.CampaignUpdateRequest;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignDetailResponse;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignOwnerInfo;
-import kr.givemeticket.api.campaign.application.dto.response.CampaignPageResponse;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignResponse;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignSearchResponse;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignStockResponse;
@@ -149,11 +148,14 @@ public class CampaignService {
 
         CampaignOwnerInfo owner = findOwner(campaign.ownerId());
         Long remainingStock = findRemainingStock(campaign.id());
+        long wishCount = wishRepository.countByCampaignId(campaign.id());
 
         if (userId == null) {
             return CampaignDetailResponse.of(
-                    campaign, owner, remainingStock, ViewerRole.GUEST, null, null);
+                    campaign, owner, remainingStock, ViewerRole.GUEST, null, null, wishCount, null);
         }
+
+        boolean wished = wishRepository.exists(userId, campaign.id());
 
         Application mine = applicationRepository
                 .findByCampaignIdAndUserId(campaign.id(), userId)
@@ -163,11 +165,11 @@ public class CampaignService {
             long confirmedCount = applicationRepository
                     .countByCampaignIdAndStatusIn(campaign.id(), CONFIRMED_ONLY);
             return CampaignDetailResponse.of(
-                    campaign, owner, remainingStock, ViewerRole.OWNER, mine, confirmedCount);
+                    campaign, owner, remainingStock, ViewerRole.OWNER, mine, confirmedCount, wishCount, wished);
         }
 
         ViewerRole role = (mine != null && mine.isActive()) ? ViewerRole.PARTICIPANT : ViewerRole.VIEWER;
-        return CampaignDetailResponse.of(campaign, owner, remainingStock, role, mine, null);
+        return CampaignDetailResponse.of(campaign, owner, remainingStock, role, mine, null, wishCount, wished);
     }
 
     /**
@@ -176,7 +178,7 @@ public class CampaignService {
      */
     @Transactional(readOnly = true)
     public List<CampaignSummaryResponse> getOwnedCampaigns(Long ownerId) {
-        return toSummaries(campaignRepository.findAllOwnedBy(ownerId), Map.of());
+        return toSummaries(campaignRepository.findAllOwnedBy(ownerId), Map.of(), ownerId);
     }
 
     /**
@@ -211,7 +213,7 @@ public class CampaignService {
                 .filter(Objects::nonNull)
                 .toList();
 
-        return toSummaries(campaigns, mineByCampaign);
+        return toSummaries(campaigns, mineByCampaign, userId);
     }
 
     /**
@@ -224,7 +226,7 @@ public class CampaignService {
                 .map(Wish::getCampaignId)
                 .toList();
 
-        return toSummaries(inOrderOf(campaignIds), Map.of());
+        return toSummaries(inOrderOf(campaignIds), Map.of(), userId);
     }
 
     /**
@@ -234,9 +236,11 @@ public class CampaignService {
      * 필터만 고르고 검색어를 비운 검색이 화면에 있어서다.
      *
      * <p>전체 건수는 페이지마다 다시 센다. 조회 사이에 행사가 늘거나 상태가 바뀌면 값이 달라질 수 있다.
+     *
+     * @param userId 로그인하지 않았으면 null. 이때 카드의 wished 도 null 이다
      */
     @Transactional(readOnly = true)
-    public CampaignSearchResponse search(CampaignSearchRequest request) {
+    public CampaignSearchResponse search(CampaignSearchRequest request, Long userId) {
         CampaignSort sort = parseSort(request.sort());
         CampaignSearchCondition condition = new CampaignSearchCondition(
                 parseKeyword(request.keyword()),
@@ -257,7 +261,7 @@ public class CampaignService {
         List<Campaign> page = hasNext ? rows.subList(0, pageSize) : rows;
 
         return new CampaignSearchResponse(
-                toSummaries(page, Map.of()),
+                toSummaries(page, Map.of(), userId),
                 hasNext ? CampaignSearchCursors.encode(CampaignCursor.after(page.getLast(), sort), sort) : null,
                 campaignRepository.count(condition));
     }
@@ -327,12 +331,26 @@ public class CampaignService {
     /**
      * 한 사람이 연 행사. 남이 보는 목록이라 삭제된 행사는 빠진다. 내 것을 볼 때는
      * 삭제된 행사까지 나오는 scope=owned 를 쓴다.
+     *
+     * <p>커서는 제목 검색의 최신순 커서와 같은 모양이다. 프론트가 두 검색을 같은 방식으로 넘기면 된다.
+     *
+     * @param userId 로그인하지 않았으면 null. 이때 카드의 wished 도 null 이다
      */
     @Transactional(readOnly = true)
-    public CampaignPageResponse getCampaignsOwnedBy(Long ownerId, Long cursor, Integer size) {
+    public CampaignSearchResponse getCampaignsOwnedBy(Long ownerId, String cursor, Integer size, Long userId) {
         int pageSize = pageSize(size);
+        CampaignCursor after = CampaignSearchCursors.decode(cursor, CampaignSort.LATEST);
 
-        return toPage(campaignRepository.findLivePageOwnedBy(ownerId, cursor, pageSize + 1), pageSize);
+        List<Campaign> rows = campaignRepository.findLivePageOwnedBy(
+                ownerId, (after == null) ? null : after.id(), pageSize + 1);
+        boolean hasNext = rows.size() > pageSize;
+        List<Campaign> page = hasNext ? rows.subList(0, pageSize) : rows;
+
+        return new CampaignSearchResponse(
+                toSummaries(page, Map.of(), userId),
+                hasNext ? CampaignSearchCursors.encode(
+                        CampaignCursor.after(page.getLast(), CampaignSort.LATEST), CampaignSort.LATEST) : null,
+                campaignRepository.countLiveOwnedBy(ownerId));
     }
 
     private static int pageSize(Integer size) {
@@ -341,16 +359,6 @@ public class CampaignService {
             throw CampaignApplicationException.invalidPageSize(MAX_PAGE_SIZE);
         }
         return pageSize;
-    }
-
-    /** 한 건 더 읽어 온 결과를 받는다. 남는 한 건이 있으면 다음 페이지가 있다는 뜻이다. */
-    private CampaignPageResponse toPage(List<Campaign> rows, int pageSize) {
-        boolean hasNext = rows.size() > pageSize;
-        List<Campaign> page = hasNext ? rows.subList(0, pageSize) : rows;
-
-        return new CampaignPageResponse(
-                toSummaries(page, Map.of()),
-                hasNext ? page.get(page.size() - 1).getId() : null);
     }
 
     /** 캠페인 조회는 id 순으로 돌아온다. 호출자가 정한 순서로 되돌려 놓는다. */
@@ -365,21 +373,27 @@ public class CampaignService {
     }
 
     /**
-     * 개설자와 재고는 캠페인마다 조회하지 않고 한 번씩 모아 온다. 카드가 30장이어도
-     * 유저 조회 1번, Redis 왕복 1번이다.
+     * 개설자·재고·찜은 캠페인마다 조회하지 않고 한 번씩 모아 온다. 카드가 30장이어도
+     * 유저 조회 1번, Redis 왕복 1번, 찜 수 1번, 내 찜 1번이다.
      *
      * <p>받은 캠페인 순서를 그대로 유지한다. 정렬은 부르는 쪽이 정한다.
      *
      * @param mineByCampaign 캠페인별 내 신청. 내가 만든 행사 목록에서는 비어 있다
+     * @param userId         보는 사람. 로그인하지 않았으면 null 이고, 이때 wished 도 null 이다
      */
     private List<CampaignSummaryResponse> toSummaries(
             List<Campaign> campaigns,
-            Map<Long, Application> mineByCampaign
+            Map<Long, Application> mineByCampaign,
+            Long userId
     ) {
+        List<Long> campaignIds = campaigns.stream().map(Campaign::getId).toList();
         Map<Long, UserResponse> ownerById = userService.findUsers(
                 campaigns.stream().map(Campaign::getOwnerId).collect(Collectors.toSet()));
-        Map<Long, Long> remainingByCampaign = findRemainingStocks(
-                campaigns.stream().map(Campaign::getId).toList());
+        Map<Long, Long> remainingByCampaign = findRemainingStocks(campaignIds);
+        Map<Long, Long> wishCountByCampaign = wishRepository.countByCampaignIds(campaignIds);
+        Set<Long> wishedIds = (userId == null)
+                ? null
+                : wishRepository.findWishedCampaignIds(userId, campaignIds);
 
         return campaigns.stream()
                 .map(campaign -> CampaignSummaryResponse.of(
@@ -387,7 +401,9 @@ public class CampaignService {
                         CampaignOwnerInfo.of(
                                 campaign.getOwnerId(), ownerById.get(campaign.getOwnerId())),
                         remainingByCampaign.get(campaign.getId()),
-                        mineByCampaign.get(campaign.getId())))
+                        mineByCampaign.get(campaign.getId()),
+                        wishCountByCampaign.getOrDefault(campaign.getId(), 0L),
+                        (wishedIds == null) ? null : wishedIds.contains(campaign.getId())))
                 .toList();
     }
 

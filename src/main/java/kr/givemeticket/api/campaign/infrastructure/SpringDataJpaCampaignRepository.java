@@ -22,6 +22,8 @@ public interface SpringDataJpaCampaignRepository extends JpaRepository<Campaign,
 
     List<Campaign> findAllByOwnerIdAndStatusNotOrderByIdDesc(Long ownerId, CampaignStatus excluded);
 
+    long countByOwnerIdAndStatusNot(Long ownerId, CampaignStatus excluded);
+
     List<Campaign> findAllByIdInOrderByIdDesc(Collection<Long> ids);
 
     List<Campaign> findAllByStatusAndOpenAtLessThanEqual(CampaignStatus status, LocalDateTime now);

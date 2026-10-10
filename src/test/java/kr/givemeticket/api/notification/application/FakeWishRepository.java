@@ -1,7 +1,10 @@
 package kr.givemeticket.api.notification.application;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import kr.givemeticket.api.wish.domain.Wish;
 import kr.givemeticket.api.wish.domain.WishRepository;
 
@@ -48,6 +51,16 @@ class FakeWishRepository implements WishRepository {
 
     @Override
     public long countByCampaignId(Long campaignId) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Map<Long, Long> countByCampaignIds(Collection<Long> campaignIds) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Set<Long> findWishedCampaignIds(Long userId, Collection<Long> campaignIds) {
         throw new UnsupportedOperationException();
     }
 

@@ -23,6 +23,8 @@ public record GetCampaignsResponse(List<CampaignItem> campaigns) {
      * @param myApplicationStatus scope=participated 일 때만 채워진다
      * @param myAppliedAt         UTC. 내가 신청한 시각으로, 위와 같이 participated 전용이다.
      *                            목록은 이 값의 내림차순으로 내려간다
+     * @param wishCount           이 행사를 찜한 사람 수
+     * @param wished              내가 찜했는지. 로그인하지 않고 조회하면 null
      */
     public record CampaignItem(
             Long id,
@@ -38,7 +40,9 @@ public record GetCampaignsResponse(List<CampaignItem> campaigns) {
             String location,
             String imageUrl,
             ApplicationStatus myApplicationStatus,
-            Instant myAppliedAt
+            Instant myAppliedAt,
+            long wishCount,
+            Boolean wished
     ) {
 
         static CampaignItem from(CampaignSummaryResponse summary) {
@@ -59,7 +63,9 @@ public record GetCampaignsResponse(List<CampaignItem> campaigns) {
                     (detail == null) ? null : detail.location(),
                     (detail == null) ? null : detail.imageUrl(),
                     summary.myApplicationStatus(),
-                    Utc.toInstant(summary.myAppliedAt())
+                    Utc.toInstant(summary.myAppliedAt()),
+                    summary.wishCount(),
+                    summary.wished()
             );
         }
     }

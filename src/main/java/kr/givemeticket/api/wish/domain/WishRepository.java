@@ -1,6 +1,9 @@
 package kr.givemeticket.api.wish.domain;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public interface WishRepository {
 
@@ -17,6 +20,12 @@ public interface WishRepository {
     int delete(Long userId, Long campaignId);
 
     long countByCampaignId(Long campaignId);
+
+    /** 행사별 찜 수. 찜이 하나도 없는 행사는 결과에 없다. */
+    Map<Long, Long> countByCampaignIds(Collection<Long> campaignIds);
+
+    /** 주어진 행사 중 이 사람이 찜한 것. */
+    Set<Long> findWishedCampaignIds(Long userId, Collection<Long> campaignIds);
 
     /** 내 찜을 최근에 찜한 것부터. */
     List<Wish> findAllByUserIdLatestFirst(Long userId);

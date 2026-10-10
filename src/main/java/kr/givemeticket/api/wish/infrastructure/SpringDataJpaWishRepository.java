@@ -1,5 +1,6 @@
 package kr.givemeticket.api.wish.infrastructure;
 
+import java.util.Collection;
 import java.util.List;
 import kr.givemeticket.api.wish.domain.Wish;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,6 +16,14 @@ public interface SpringDataJpaWishRepository extends JpaRepository<Wish, Long> {
     long countByCampaignId(Long campaignId);
 
     List<Wish> findAllByUserIdOrderByIdDesc(Long userId);
+
+    /** 행 하나가 [campaignId, count] 다. */
+    @Query("SELECT w.campaignId, COUNT(w) FROM Wish w WHERE w.campaignId IN :campaignIds GROUP BY w.campaignId")
+    List<Object[]> countGroupByCampaignId(@Param("campaignIds") Collection<Long> campaignIds);
+
+    @Query("SELECT w.campaignId FROM Wish w WHERE w.userId = :userId AND w.campaignId IN :campaignIds")
+    List<Long> findCampaignIdsByUserIdAndCampaignIdIn(
+            @Param("userId") Long userId, @Param("campaignIds") Collection<Long> campaignIds);
 
     @Query("SELECT w.userId FROM Wish w WHERE w.campaignId = :campaignId")
     List<Long> findUserIdsByCampaignId(@Param("campaignId") Long campaignId);

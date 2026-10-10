@@ -2,11 +2,11 @@ package kr.givemeticket.api.campaign.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import kr.givemeticket.api.campaign.application.dto.request.CampaignSearchRequest;
-import kr.givemeticket.api.campaign.application.dto.response.CampaignPageResponse;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignSearchResponse;
 import kr.givemeticket.api.campaign.application.dto.response.CampaignSummaryResponse;
 import kr.givemeticket.api.campaign.domain.Campaign;
@@ -215,7 +215,7 @@ class CampaignSearchTest {
     }
 
     private CampaignSearchResponse search(CampaignSearchRequest request) {
-        return campaignService.search(request);
+        return campaignService.search(request, null);
     }
 
     private static CampaignSearchRequest keyword(String keyword) {
@@ -246,17 +246,44 @@ class CampaignSearchTest {
             givenCampaign(3L, OWNER_ID, "C", CampaignStatus.DELETED);
             givenCampaign(4L, OWNER_ID, "D", CampaignStatus.SCHEDULED);
 
-            assertThat(ids(campaignService.getCampaignsOwnedBy(OWNER_ID, null, null)))
-                    .containsExactly(4L, 1L);
+            CampaignSearchResponse page = campaignService.getCampaignsOwnedBy(OWNER_ID, null, null, null);
+
+            assertThat(ids(page)).containsExactly(4L, 1L);
+            assertThat(page.totalCount()).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("제목 검색과 같은 문자열 커서로 이어서 읽고, 전체 건수는 페이지와 상관없이 같다")
+        void pagesWithStringCursor() {
+            for (long id = 1; id <= 3; id++) {
+                givenCampaign(id, OWNER_ID, "콘서트 " + id, CampaignStatus.OPEN);
+            }
+
+            CampaignSearchResponse first = campaignService.getCampaignsOwnedBy(OWNER_ID, null, 2, null);
+            CampaignSearchResponse last = campaignService.getCampaignsOwnedBy(OWNER_ID, first.nextCursor(), 2, null);
+
+            assertThat(ids(first)).containsExactly(3L, 2L);
+            assertThat(first.nextCursor()).isEqualTo("2");
+            assertThat(ids(last)).containsExactly(1L);
+            assertThat(last.nextCursor()).isNull();
+            assertThat(List.of(first.totalCount(), last.totalCount())).containsOnly(3L);
+        }
+
+        @Test
+        @DisplayName("깨진 커서는 400 이다")
+        void rejectsBrokenCursor() {
+            assertThatThrownBy(() -> campaignService.getCampaignsOwnedBy(OWNER_ID, "abc", null, null))
+                    .isInstanceOf(CampaignApplicationException.class);
         }
 
         @Test
         @DisplayName("연 행사가 없으면 빈 목록이다")
         void returnsEmptyForUnknownOwner() {
-            CampaignPageResponse page = campaignService.getCampaignsOwnedBy(999L, null, null);
+            CampaignSearchResponse page = campaignService.getCampaignsOwnedBy(999L, null, null, null);
 
             assertThat(page.campaigns()).isEmpty();
             assertThat(page.nextCursor()).isNull();
+            assertThat(page.totalCount()).isZero();
         }
     }
 
@@ -281,12 +308,42 @@ class CampaignSearchTest {
         }
     }
 
-    private static List<Long> ids(CampaignSearchResponse page) {
-        return page.campaigns().stream().map(CampaignSummaryResponse::campaign)
-                .map(campaign -> campaign.id()).toList();
+    @Nested
+    @DisplayName("카드의 찜 정보는")
+    class WishInfo {
+
+        @Test
+        @DisplayName("찜 수와 내가 찜했는지를 함께 담는다")
+        void carriesWishCountAndMine() {
+            givenCampaign(1L, OWNER_ID, "A", CampaignStatus.OPEN);
+            givenCampaign(2L, OWNER_ID, "B", CampaignStatus.OPEN);
+            wishRepository.put(USER_ID, 1L);
+            wishRepository.put(99L, 1L);
+
+            CampaignSearchResponse page = campaignService.search(keyword(null), USER_ID);
+
+            assertThat(page.campaigns())
+                    .extracting(summary -> summary.campaign().id(),
+                            CampaignSummaryResponse::wishCount, CampaignSummaryResponse::wished)
+                    .containsExactly(tuple(2L, 0L, false), tuple(1L, 2L, true));
+        }
+
+        @Test
+        @DisplayName("로그인하지 않으면 wished 는 null 이다")
+        void leavesWishedNullForGuest() {
+            givenCampaign(1L, OWNER_ID, "A", CampaignStatus.OPEN);
+            wishRepository.put(USER_ID, 1L);
+
+            assertThat(campaignService.getCampaignsOwnedBy(OWNER_ID, null, null, null).campaigns())
+                    .singleElement()
+                    .satisfies(summary -> {
+                        assertThat(summary.wishCount()).isEqualTo(1);
+                        assertThat(summary.wished()).isNull();
+                    });
+        }
     }
 
-    private static List<Long> ids(CampaignPageResponse page) {
+    private static List<Long> ids(CampaignSearchResponse page) {
         return page.campaigns().stream().map(CampaignSummaryResponse::campaign)
                 .map(campaign -> campaign.id()).toList();
     }

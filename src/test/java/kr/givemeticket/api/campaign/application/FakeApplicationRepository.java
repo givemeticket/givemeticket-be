@@ -65,7 +65,10 @@ class FakeApplicationRepository implements ApplicationRepository {
 
     @Override
     public Optional<Application> findByCampaignIdAndUserId(Long campaignId, Long userId) {
-        throw new UnsupportedOperationException();
+        return applications.stream()
+                .filter(application -> application.getCampaignId().equals(campaignId))
+                .filter(application -> application.getUserId().equals(userId))
+                .findFirst();
     }
 
     @Override

@@ -11,7 +11,6 @@ import kr.givemeticket.api.campaign.ui.dto.request.PatchCampaignRequest;
 import kr.givemeticket.api.campaign.ui.dto.request.PostCampaignRequest;
 import kr.givemeticket.api.campaign.ui.dto.response.CloseCampaignResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.CreateCampaignResponse;
-import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignPageResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignStockResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignsResponse;
@@ -92,6 +91,7 @@ public class CampaignController implements CampaignApiSpec {
     @Override
     @GetMapping("campaigns/search")
     public ResponseEntity<SearchCampaignsResponse> searchCampaigns(
+            @LoginUserId(required = false) Long userId,
             @RequestParam(value = "keyword", required = false) String keyword,
             @RequestParam(value = "status", required = false) List<String> statuses,
             @RequestParam(value = "soldOut", required = false) Boolean soldOut,
@@ -102,18 +102,20 @@ public class CampaignController implements CampaignApiSpec {
             @RequestParam(value = "size", required = false) Integer size
     ) {
         return ResponseEntity.ok(SearchCampaignsResponse.from(campaignService.search(
-                new CampaignSearchRequest(keyword, statuses, soldOut, openFrom, openTo, sort, cursor, size))));
+                new CampaignSearchRequest(keyword, statuses, soldOut, openFrom, openTo, sort, cursor, size),
+                userId)));
     }
 
     @Override
     @GetMapping("users/{userId}/campaigns")
-    public ResponseEntity<GetCampaignPageResponse> readCampaignsOwnedBy(
+    public ResponseEntity<SearchCampaignsResponse> readCampaignsOwnedBy(
+            @LoginUserId(required = false) Long userId,
             @PathVariable("userId") Long ownerId,
-            @RequestParam(value = "cursor", required = false) Long cursor,
+            @RequestParam(value = "cursor", required = false) String cursor,
             @RequestParam(value = "size", required = false) Integer size
     ) {
-        return ResponseEntity.ok(GetCampaignPageResponse.from(
-                campaignService.getCampaignsOwnedBy(ownerId, cursor, size)));
+        return ResponseEntity.ok(SearchCampaignsResponse.from(
+                campaignService.getCampaignsOwnedBy(ownerId, cursor, size, userId)));
     }
 
     @Override

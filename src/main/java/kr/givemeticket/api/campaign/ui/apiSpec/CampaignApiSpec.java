@@ -11,7 +11,6 @@ import kr.givemeticket.api.campaign.ui.dto.request.PatchCampaignRequest;
 import kr.givemeticket.api.campaign.ui.dto.request.PostCampaignRequest;
 import kr.givemeticket.api.campaign.ui.dto.response.CloseCampaignResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.CreateCampaignResponse;
-import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignPageResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignStockResponse;
 import kr.givemeticket.api.campaign.ui.dto.response.GetCampaignsResponse;
@@ -46,6 +45,7 @@ public interface CampaignApiSpec {
                       그리기 위한 조회 시점 스냅샷이며, 이후 갱신은 GET /campaigns/{campaignId}/stock 으로
                       폴링하세요. 재고를 읽지 못한 경우에도 조회는 성공하고 두 값이 null 로 옵니다
                     - 행사 안내 정보는 detail에 담기며 등록된 게 없으면 null입니다
+                    - wishCount 는 찜 수, wished 는 내가 찜했는지입니다. 토큰 없이 부르면 wished 는 null 입니다
                     - 삭제된 캠페인은 410을 반환합니다
                     """)
     ResponseEntity<GetCampaignResponse> readCampaign(
@@ -88,6 +88,7 @@ public interface CampaignApiSpec {
                     - wished 는 최근에 찜한 행사가 위로 옵니다. 주최자가 지운 행사도 status=DELETED 로
                       남고, DELETE /campaigns/{campaignId}/wish 로 해제하면 빠집니다.
                       myApplicationStatus/myAppliedAt 은 null 입니다
+                    - 카드마다 찜 수(wishCount)와 내가 찜했는지(wished)가 함께 내려갑니다
                     """)
     ResponseEntity<GetCampaignsResponse> readCampaigns(
             @Parameter(hidden = true) @LoginUserId Long userId,
@@ -99,6 +100,7 @@ public interface CampaignApiSpec {
     @Operation(summary = "캠페인 검색",
             description = """
                     검색어와 필터로 행사를 찾습니다. 로그인하지 않아도 됩니다. 삭제된 행사는 나오지 않습니다.
+                    토큰을 보내면 카드의 wished 에 내가 찜했는지가 담기고, 없으면 null 입니다.
 
                     검색어
                     - keyword 는 선택입니다. 비우면 제목 조건 없이 필터만으로 찾습니다.
@@ -133,6 +135,7 @@ public interface CampaignApiSpec {
                     카드 모양은 GET /campaigns 와 같습니다. myApplicationStatus/myAppliedAt 은 null 입니다
                     """)
     ResponseEntity<SearchCampaignsResponse> searchCampaigns(
+            @Parameter(hidden = true) @LoginUserId(required = false) Long userId,
             @Parameter(description = "검색어. 선택", example = "콘서트")
             @RequestParam(value = "keyword", required = false) String keyword,
             @Parameter(description = "상태 칩. 여러 개 가능",
@@ -160,13 +163,16 @@ public interface CampaignApiSpec {
                     - 남이 보는 목록이라 삭제된 행사는 빠집니다. 내가 연 행사를 삭제된 것까지 보려면
                       GET /campaigns?scope=owned 를 쓰세요
                     - 없는 사용자이거나 연 행사가 없으면 빈 목록입니다
-                    - 페이징 규칙은 제목 검색과 같습니다
+                    - 페이징 규칙은 제목 검색과 같습니다. nextCursor 는 문자열이니 받은 그대로 넘기세요
+                    - totalCount 는 그 사람이 연, 삭제되지 않은 행사 전체 수입니다
+                    - 응답 모양은 제목 검색(GET /campaigns/search)과 같습니다. 토큰을 보내면 wished 가 채워집니다
                     """)
-    ResponseEntity<GetCampaignPageResponse> readCampaignsOwnedBy(
+    ResponseEntity<SearchCampaignsResponse> readCampaignsOwnedBy(
+            @Parameter(hidden = true) @LoginUserId(required = false) Long userId,
             @Parameter(description = "작성자(개설자) 사용자 ID", example = "1")
             @PathVariable("userId") Long ownerId,
-            @Parameter(description = "이전 응답의 nextCursor. 첫 페이지면 비웁니다", example = "120")
-            @RequestParam(value = "cursor", required = false) Long cursor,
+            @Parameter(description = "이전 응답의 nextCursor. 첫 페이지면 비웁니다")
+            @RequestParam(value = "cursor", required = false) String cursor,
             @Parameter(description = "페이지 크기. 기본 20, 최대 50", example = "20")
             @RequestParam(value = "size", required = false) Integer size
     );

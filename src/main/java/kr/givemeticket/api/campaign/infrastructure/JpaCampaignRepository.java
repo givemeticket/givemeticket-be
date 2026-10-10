@@ -96,6 +96,11 @@ public class JpaCampaignRepository implements CampaignRepository {
                 ownerId, cursorOrMax(cursor), Limit.of(limit));
     }
 
+    @Override
+    public long countLiveOwnedBy(Long ownerId) {
+        return springDataJpaCampaignRepository.countByOwnerIdAndStatusNot(ownerId, CampaignStatus.DELETED);
+    }
+
     /** 첫 페이지는 커서가 없다. 조건을 둘로 나누지 않고 가장 큰 값으로 대신한다. */
     private static Long cursorOrMax(Long cursor) {
         return (cursor == null) ? Long.MAX_VALUE : cursor;
