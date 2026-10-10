@@ -19,6 +19,8 @@ import kr.givemeticket.api.global.time.Utc;
  * @param myApplication  내 신청 내역. 없으면 null
  * @param confirmedCount 확정 신청 수. OWNER에게만 내려간다
  * @param detail         행사 안내 정보. 등록된 게 없으면 null
+ * @param wishCount      이 행사를 찜한 사람 수
+ * @param wished         내가 찜했는지. 로그인하지 않고 조회하면 null
  */
 public record GetCampaignResponse(
         Long id,
@@ -34,7 +36,9 @@ public record GetCampaignResponse(
         ViewerRole viewerRole,
         MyApplicationResponse myApplication,
         Long confirmedCount,
-        CampaignDetailResponsePart detail
+        CampaignDetailResponsePart detail,
+        long wishCount,
+        Boolean wished
 ) {
 
     public static GetCampaignResponse from(CampaignDetailResponse response) {
@@ -54,7 +58,9 @@ public record GetCampaignResponse(
                 response.viewerRole(),
                 MyApplicationResponse.from(response.myApplication()),
                 response.confirmedCount(),
-                CampaignDetailResponsePart.from(campaign.detail())
+                CampaignDetailResponsePart.from(campaign.detail()),
+                response.wishCount(),
+                response.wished()
         );
     }
 }

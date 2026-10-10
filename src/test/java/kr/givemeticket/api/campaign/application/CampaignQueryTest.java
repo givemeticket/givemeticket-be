@@ -126,6 +126,25 @@ class CampaignQueryTest {
     }
 
     @Test
+    @DisplayName("상세에는 찜 수와 내가 찜했는지가 담기고, 비로그인이면 wished 가 null 이다")
+    void detailCarriesWishInfo() {
+        givenOwner("민기", null);
+        givenCampaign(1L, "행사A", CampaignStatus.OPEN, 100, 37L);
+        wishRepository.put(USER_ID, 1L);
+        wishRepository.put(99L, 1L);
+
+        CampaignDetailResponse mine = campaignService.getCampaignDetail("code1", USER_ID);
+        CampaignDetailResponse guest = campaignService.getCampaignDetail("code1", null);
+        CampaignDetailResponse owner = campaignService.getCampaignDetail("code1", OWNER_ID);
+
+        assertThat(mine.wishCount()).isEqualTo(2);
+        assertThat(mine.wished()).isTrue();
+        assertThat(guest.wishCount()).isEqualTo(2);
+        assertThat(guest.wished()).isNull();
+        assertThat(owner.wished()).isFalse();
+    }
+
+    @Test
     @DisplayName("재고를 읽지 못해도 상세는 재고만 비운 채 내려간다")
     void detailSurvivesStockFailure() {
         givenOwner("민기", null);

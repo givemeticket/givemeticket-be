@@ -1,7 +1,11 @@
 package kr.givemeticket.api.campaign.application;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import kr.givemeticket.api.wish.domain.Wish;
 import kr.givemeticket.api.wish.domain.WishRepository;
 
@@ -38,7 +42,8 @@ class FakeWishRepository implements WishRepository {
 
     @Override
     public boolean exists(Long userId, Long campaignId) {
-        throw new UnsupportedOperationException();
+        return wishes.stream()
+                .anyMatch(wish -> wish.getUserId().equals(userId) && wish.getCampaignId().equals(campaignId));
     }
 
     @Override
@@ -48,7 +53,22 @@ class FakeWishRepository implements WishRepository {
 
     @Override
     public long countByCampaignId(Long campaignId) {
-        throw new UnsupportedOperationException();
+        return wishes.stream().filter(wish -> wish.getCampaignId().equals(campaignId)).count();
+    }
+
+    @Override
+    public Map<Long, Long> countByCampaignIds(Collection<Long> campaignIds) {
+        return wishes.stream()
+                .filter(wish -> campaignIds.contains(wish.getCampaignId()))
+                .collect(Collectors.groupingBy(Wish::getCampaignId, Collectors.counting()));
+    }
+
+    @Override
+    public Set<Long> findWishedCampaignIds(Long userId, Collection<Long> campaignIds) {
+        return wishes.stream()
+                .filter(wish -> wish.getUserId().equals(userId) && campaignIds.contains(wish.getCampaignId()))
+                .map(Wish::getCampaignId)
+                .collect(Collectors.toSet());
     }
 
     @Override

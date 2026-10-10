@@ -12,6 +12,8 @@ import kr.givemeticket.api.campaign.domain.ViewerRole;
  * @param remainingStock 조회 시점의 잔여 재고. 읽지 못하면 null
  * @param myApplication  내 신청 내역. 없으면 null
  * @param confirmedCount 확정된 신청 수. OWNER에게만 채워진다
+ * @param wishCount      이 행사를 찜한 사람 수
+ * @param wished         내가 찜했는지. GUEST 면 null
  */
 public record CampaignDetailResponse(
         CampaignResponse campaign,
@@ -19,7 +21,9 @@ public record CampaignDetailResponse(
         Long remainingStock,
         ViewerRole viewerRole,
         MyApplication myApplication,
-        Long confirmedCount
+        Long confirmedCount,
+        long wishCount,
+        Boolean wished
 ) {
 
     public record MyApplication(
@@ -42,7 +46,9 @@ public record CampaignDetailResponse(
             Long remainingStock,
             ViewerRole viewerRole,
             Application myApplication,
-            Long confirmedCount
+            Long confirmedCount,
+            long wishCount,
+            Boolean wished
     ) {
         return new CampaignDetailResponse(
                 CampaignResponse.of(campaign),
@@ -50,7 +56,9 @@ public record CampaignDetailResponse(
                 remainingStock,
                 viewerRole,
                 (myApplication == null) ? null : MyApplication.from(myApplication),
-                confirmedCount
+                confirmedCount,
+                wishCount,
+                wished
         );
     }
 }

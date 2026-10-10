@@ -54,6 +54,9 @@ public interface CampaignRepository {
      */
     List<Campaign> findLivePageOwnedBy(Long ownerId, Long cursor, int limit);
 
+    /** 한 사람이 연, 삭제되지 않은 행사 수. */
+    long countLiveOwnedBy(Long ownerId);
+
     /**
      * 행사 시작 일시가 (from, to] 에 드는, 삭제되지 않은 행사. 임박 알림 대상을 고른다.
      */

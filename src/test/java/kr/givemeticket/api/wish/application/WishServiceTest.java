@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import kr.givemeticket.api.campaign.application.CampaignApplicationException;
 import kr.givemeticket.api.campaign.domain.Campaign;
 import kr.givemeticket.api.campaign.domain.CampaignCursor;
@@ -185,6 +186,16 @@ class WishServiceTest {
         }
 
         @Override
+        public Map<Long, Long> countByCampaignIds(Collection<Long> campaignIds) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Set<Long> findWishedCampaignIds(Long userId, Collection<Long> campaignIds) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public List<Wish> findAllByUserIdLatestFirst(Long userId) {
             throw new UnsupportedOperationException();
         }
@@ -262,6 +273,11 @@ class WishServiceTest {
 
         @Override
         public List<Campaign> findLivePageOwnedBy(Long ownerId, Long cursor, int limit) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public long countLiveOwnedBy(Long ownerId) {
             throw new UnsupportedOperationException();
         }
 

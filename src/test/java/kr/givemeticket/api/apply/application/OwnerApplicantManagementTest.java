@@ -413,6 +413,11 @@ class OwnerApplicantManagementTest {
         }
 
         @Override
+        public long countLiveOwnedBy(Long ownerId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public int markDeleted(Long campaignId) {
             throw new UnsupportedOperationException();
         }

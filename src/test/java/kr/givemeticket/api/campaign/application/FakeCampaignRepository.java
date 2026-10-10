@@ -145,6 +145,13 @@ class FakeCampaignRepository implements CampaignRepository {
         return livePage(campaign -> campaign.isOwnedBy(ownerId), cursor, limit);
     }
 
+    @Override
+    public long countLiveOwnedBy(Long ownerId) {
+        return campaigns.values().stream()
+                .filter(campaign -> !campaign.isDeleted() && campaign.isOwnedBy(ownerId))
+                .count();
+    }
+
     private List<Campaign> livePage(Predicate<Campaign> condition, Long cursor, int limit) {
         return campaigns.values().stream()
                 .filter(campaign -> !campaign.isDeleted())
